@@ -10,11 +10,13 @@
     "bot": "tsx src/bot.ts",
     "mcp": "tsx src/mcp.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts && tsx src/media.test.mts && tsx src/mediaread.test.mts && tsx src/admin.test.mts",
+    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts && tsx src/media.test.mts && tsx src/mediaread.test.mts && tsx src/admin.test.mts && tsx src/history.test.mts",
     "sample-template": "tsx src/sample-template.ts",
     "test:live": "tsx src/live.test.mts",
     "backup": "bash deploy/backup.sh",
-    "kiemtra": "tsx src/doctor.ts"
+    "kiemtra": "tsx src/doctor.ts",
+    "lay-lich-su": "tsx src/cli-history.ts",
+    "lenh": "tsx src/cli-command.ts"
   },
   "engines": {
     "node": ">=22.13"

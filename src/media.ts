@@ -159,6 +159,24 @@ function runRclone(args: string[]): Promise<void> {
   });
 }
 
+/** drive_remote là đường dẫn cục bộ (vd "G:\\My Drive\\Cong trinh" của Google Drive for desktop, hoặc "/mnt/drive") -> không cần rclone. */
+export const isLocalTarget = (t: string) => /^[A-Za-z]:[\\/]/.test(t) || t.startsWith("/") || t.startsWith("\\\\");
+
+/** Chuyển cây thư mục chờ sang thư mục cục bộ (chép rồi xoá nguồn), bỏ qua *.part. */
+function moveLocal(src: string, dst: string): void {
+  for (const e of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, e.name), d = path.join(dst, e.name);
+    if (e.isDirectory()) {
+      moveLocal(s, d);
+      if (!fs.readdirSync(s).length) fs.rmdirSync(s);
+    } else if (!e.name.endsWith(".part")) {
+      fs.mkdirSync(dst, { recursive: true });
+      fs.copyFileSync(s, d);
+      fs.rmSync(s);
+    }
+  }
+}
+
 let syncing = false;
 /** Ghi nhật ký hôm nay + hôm qua, rồi chuyển toàn bộ thư mục chờ lên Drive. */
 export async function syncToDrive(): Promise<{ moved: number } | null> {
@@ -169,7 +187,8 @@ export async function syncToDrive(): Promise<{ moved: number } | null> {
     writeDailyLogs([vnDate(Date.now() - 86_400_000), vnDate(Date.now())]);
     const before = db.prepare("SELECT id,rel_path FROM media WHERE status='downloaded'").all() as { id: number; rel_path: string }[];
     // move: lên Drive xong thì xoá bản tạm; bỏ qua tệp đang tải dở (*.part)
-    await runRclone(["move", DRIVE_OUT_DIR, remote, "--exclude", "*.part", "--delete-empty-src-dirs", "--transfers", "4", "--retries", "3"]);
+    if (isLocalTarget(remote)) moveLocal(DRIVE_OUT_DIR, remote);
+    else await runRclone(["move", DRIVE_OUT_DIR, remote, "--exclude", "*.part", "--delete-empty-src-dirs", "--transfers", "4", "--retries", "3"]);
     let moved = 0;
     for (const r of before) {
       if (!fs.existsSync(path.join(DRIVE_OUT_DIR, r.rel_path))) {

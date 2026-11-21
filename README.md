@@ -71,7 +71,9 @@ Sau khi ghép nối (`/ketnoi`), bạn nhắn lệnh cho nick bot để quản l
 | Mẫu hồ sơ | **Gửi file .docx đã đặt thẻ** cho bot → tự nạp; `/mau` để xem |
 | Nạp tài liệu | **Gửi file PDF/Word/Excel** cho bot → lưu vào bộ nhớ (riêng tư) |
 | Tổng hợp | `/tonghop`, `/tonghop 2026-11-20` |
-| Drive, cài đặt | `/drive gdrive:Cong trinh/Anh hien truong`, `/dat daily_digest_time 17:30` |
+| Drive, cài đặt | `/drive gdrive:Cong trinh/Anh hien truong` hoặc `/drive G:\My Drive\Zalo` (máy Windows), `/dat daily_digest_time 17:30` |
+
+Trên máy chạy bot cũng có thể gõ lệnh trực tiếp: `npm run lenh -- "/trangthai"`.
 | Duyệt hồ sơ | `duyệt 12`, `hủy 12 lý do` |
 
 `npm run kiemtra` (trên máy chủ) liệt kê bước nào đã xong, bước nào còn thiếu.
@@ -149,4 +151,4 @@ Bạn (tài khoản chủ) cũng nhắn yêu cầu được; khi đó bot gửi 
 
 `npm run test:live` chạy kiểm thử **thật** với Claude Code (tốn lượt dùng): trích xuất tin nhắn hiện trường thật, trả lời chủ, soạn báo cáo tuần có chặn phạm vi, đọc ảnh chụp bảng khối lượng.
 
-`npm test` chạy năm bài kiểm thử (bài năm: lệnh quản trị qua Zalo, nạp tệp qua Zalo, mã ghép nối lần đầu); với LLM giả lập (bài ba: tải ảnh/tệp, nhật ký ngày, Drive bằng rclone giả lập, sao lưu; bài bốn: đọc ảnh/Excel, tổng hợp ngày): (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.
+`npm run lay-lich-su` lấy toàn bộ lịch sử các nhóm ghim (xem CHAY-TREN-WINDOWS.md). `npm test` chạy sáu bài kiểm thử (bài sáu: lấy lịch sử nhóm, chống trùng, lưu ra ổ G:); (bài năm: lệnh quản trị qua Zalo, nạp tệp qua Zalo, mã ghép nối lần đầu); với LLM giả lập (bài ba: tải ảnh/tệp, nhật ký ngày, Drive bằng rclone giả lập, sao lưu; bài bốn: đọc ảnh/Excel, tổng hợp ngày): (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.

@@ -4,6 +4,10 @@ Những phần mình làm được thì đã làm xong. Còn lại là các bư�
 
 Mỗi bước có hướng dẫn chi tiết trong [DEPLOY.md](DEPLOY.md). Kẹt ở đâu, chụp màn hình gửi Claude.
 
+## 0. Làm ngay nếu muốn: lấy toàn bộ lịch sử 3 nhóm ghim (15 phút, trên máy Windows)
+
+Claude không điều khiển được máy tính của bạn từ phiên này (máy `DESKTOP-AQJUL77` chưa cho phiên đám mây kết nối; có thể ứng dụng Claude trên Windows cần cập nhật). Vì vậy mình viết sẵn lệnh để bạn tự chạy: **`npm run lay-lich-su`** lấy lịch sử thẳng từ máy chủ Zalo, không phải cuộn màn hình. Kết quả lưu vào ổ **G:** (Google Drive). Xem [CHAY-TREN-WINDOWS.md](CHAY-TREN-WINDOWS.md).
+
 ## A. Chuẩn bị (10 phút)
 
 - [ ] **A1. Nick Zalo phụ cho bot.** Dùng một số điện thoại khác số chính. Bot chạy trên nick này; Zalo chính của bạn dùng để hỏi và quản lý.
@@ -65,6 +69,8 @@ Mỗi bước có hướng dẫn chi tiết trong [DEPLOY.md](DEPLOY.md). Kẹt 
 | Tải hết ảnh, tệp hiện trường lên thư mục Google Drive chỉ định | ✅ Chờ bạn làm mục C |
 | Claude đọc ảnh chụp bảng khối lượng, Excel, PDF để lấy số liệu | ✅ Đã chạy thử thật |
 | Tổng hợp gửi bạn mỗi tối 18:00 | ✅ |
+| Đọc và lưu toàn bộ lịch sử các nhóm ghim | ✅ `npm run lay-lich-su` (chờ bạn chạy, mục 0) |
+| Lưu vào Google Drive của tài khoản bạn chọn (ổ G:) | ✅ Đặt `/drive G:\My Drive\...`, không cần rclone khi chạy trên máy Windows |
 | Quản lý mọi thứ ngay trên Zalo điện thoại | ✅ `/huongdan` |
 
 **Chưa kiểm chứng được** (vì cần tài khoản của bạn): đăng nhập Zalo thật, gửi và nhận tin Zalo thật, rclone với Google Drive thật, cài đặt trên máy Oracle thật. Lần chạy đầu tiên có lỗi gì, bạn gửi nhật ký (`journalctl -u zalo-bot -n 100`) cho Claude.

@@ -149,6 +149,8 @@ try { db.exec("ALTER TABLE requesters ADD COLUMN account_memory INTEGER NOT NULL
 for (const col of ["read_status TEXT NOT NULL DEFAULT ''", "content_text TEXT NOT NULL DEFAULT ''", "read_attempts INTEGER NOT NULL DEFAULT 0"]) {
   try { db.exec(`ALTER TABLE media ADD COLUMN ${col}`); } catch { /* đã có */ }
 }
+try { db.exec("ALTER TABLE messages ADD COLUMN msg_id TEXT"); } catch { /* đã có */ }
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_msgid ON messages(thread_id, msg_id) WHERE msg_id IS NOT NULL");
 // extracted: 0 = chờ xử lý, 1 = đã trích xuất, 2 = bỏ qua (không phải báo cáo)
 try { db.exec("ALTER TABLE messages ADD COLUMN extracted INTEGER NOT NULL DEFAULT 0"); } catch { /* đã có */ }
 db.exec("PRAGMA foreign_keys = ON;");
@@ -216,11 +218,13 @@ export function getHeartbeat(): number | null {
 }
 
 // ---------- messages ----------
+/** Ghi tin nhắn. Có msgId thì chống trùng (tin đã có sẽ bỏ qua). Trả true nếu là tin mới. */
 export function logMessage(m: {
   ts?: number; threadId: string; threadType: "user" | "group"; senderId: string; senderName?: string;
-  direction: "in" | "out_bot" | "out_manual" | "out_claude"; text: string;
-}): void {
-  db.prepare(
-    "INSERT INTO messages(ts,thread_id,thread_type,sender_id,sender_name,direction,text) VALUES(?,?,?,?,?,?,?)",
-  ).run(m.ts ?? Date.now(), m.threadId, m.threadType, m.senderId, m.senderName ?? "", m.direction, m.text);
+  direction: "in" | "out_bot" | "out_manual" | "out_claude"; text: string; msgId?: string;
+}): boolean {
+  const r = db.prepare(
+    "INSERT OR IGNORE INTO messages(ts,thread_id,thread_type,sender_id,sender_name,direction,text,msg_id) VALUES(?,?,?,?,?,?,?,?)",
+  ).run(m.ts ?? Date.now(), m.threadId, m.threadType, m.senderId, m.senderName ?? "", m.direction, m.text, m.msgId ?? null);
+  return Number(r.changes) > 0;
 }

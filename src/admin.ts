@@ -6,7 +6,7 @@ import { db, getJsonList, getSetting, setSetting, type SettingKey } from "./db.j
 import * as D from "./docs.js";
 import { friendsCount } from "./friends.js";
 import { addDoc, listDocs, setDocVisibility } from "./knowledge.js";
-import { driveStatus } from "./media.js";
+import { driveStatus, isLocalTarget } from "./media.js";
 import * as P from "./projects.js";
 import { buildDigest } from "./digest.js";
 import { listTemplates } from "./templates.js";
@@ -141,7 +141,7 @@ export function runAdminCommand(owner: string, text: string): string {
       case "tonghop": return buildDigest(/^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : undefined);
       case "drive": {
         if (!arg) return `Thư mục Drive hiện tại: ${getSetting("drive_remote") || "CHƯA ĐẶT"}\nĐặt: /drive gdrive:Cong trinh/Anh hien truong`;
-        if (!/^[A-Za-z0-9_\-]+:/.test(arg)) return "Phải có dạng <tên remote rclone>:<thư mục>, ví dụ gdrive:Cong trinh/Anh hien truong";
+        if (!/^[A-Za-z0-9_\-]{2,}:/.test(arg) && !isLocalTarget(arg)) return "Phải có dạng <tên remote rclone>:<thư mục> (vd gdrive:Cong trinh/Anh hien truong), hoặc thư mục trên máy (vd G:\\My Drive\\Cong trinh)";
         setSetting("drive_remote", arg);
         return `✅ Ảnh, nhật ký và sao lưu sẽ lưu vào ${arg}. Gõ /trangthai sau 10 phút để kiểm tra.`;
       }

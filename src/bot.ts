@@ -189,7 +189,7 @@ api.listener.on("message", (m) => {
 
   const name = m.data.dName || m.data.uidFrom;
   if (type === "group") void ensureGroupName(m.threadId); else upsertThread(m.threadId, "user", name);
-  logMessage({ ts: Number(m.data.ts) || undefined, threadId: m.threadId, threadType: type, senderId: m.data.uidFrom, senderName: name, direction: "in", text: shown });
+  if (!logMessage({ ts: Number(m.data.ts) || undefined, threadId: m.threadId, threadType: type, senderId: m.data.uidFrom, senderName: name, direction: "in", text: shown, msgId: m.data.msgId ? String(m.data.msgId) : undefined })) return; // tin trùng
   if (type === "group" && att && queueMedia({ msgId: String(m.data.msgId), threadId: m.threadId, ts: Number(m.data.ts) || Date.now(), sender: name, msgType: m.data.msgType, content: m.data.content })) void runDownloads();
   // Chủ gửi tệp cho bot: nạp mẫu hồ sơ hoặc tài liệu vào bộ nhớ
   if (type === "user" && att?.kind === "file" && isOwner(m.threadId)) {
