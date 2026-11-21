@@ -37,7 +37,7 @@ Toàn bộ dữ liệu tổng hợp (báo cáo hiện trường, tài liệu, m�
    ```bash
    scp -i duong-dan-khoa-ssh ubuntu@<IP-máy-chủ>:zalo-bot/data/qr.png .
    ```
-   Mở ảnh rồi quét bằng Zalo **của nick bot** trên điện thoại, bấm xác nhận.
+   Mở ảnh rồi quét bằng Zalo **của nick bot** trên điện thoại, bấm xác nhận. Màn hình máy chủ sẽ in **MÃ GHÉP NỐI** (hiệu lực 24 giờ): giữ lại cho bước 8.
 7. **Chạy bot:**
    ```bash
    sudo systemctl start zalo-bot
@@ -48,6 +48,9 @@ Toàn bộ dữ liệu tổng hợp (báo cáo hiện trường, tài liệu, m�
    ```
 
 Bot tự khởi động lại khi máy chủ khởi động lại hoặc khi gặp lỗi.
+
+8. **Ghép nối tài khoản chủ:** kết bạn giữa Zalo chính của bạn và nick bot, rồi từ Zalo chính nhắn cho nick bot `/ketnoi <mã>`. Tự trả lời sẽ được bật luôn.
+9. **Kiểm tra:** chạy `npm run kiemtra` để xem còn thiếu bước nào. Các bước còn lại (công trình, ghép nhóm, cấp quyền, mẫu hồ sơ, thư mục Drive) **làm ngay trên Zalo**: nhắn `/huongdan` cho nick bot.
 
 ## Google Drive: ảnh hiện trường, nhật ký, sao lưu
 

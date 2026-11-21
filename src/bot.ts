@@ -8,11 +8,13 @@ import { answerForOwner, answerFromKnowledge } from "./answer.js";
 import { engine, engineReady } from "./llm.js";
 import { checkClaudeCode } from "./claudecode.js";
 import { extractPending } from "./extract.js";
-import { tryPairCommand } from "./pairing.js";
+import { firstRunPairCode, tryPairCommand } from "./pairing.js";
 import { attachmentLabel, downloadPending, parseAttachment, queueMedia, syncToDrive } from "./media.js";
 import { readPendingMedia } from "./mediaread.js";
 import { buildDigest, digestDue } from "./digest.js";
 import { vnDate } from "./projects.js";
+import { isAdminCommand, runAdminCommand } from "./admin.js";
+import { handleOwnerFile } from "./inbox.js";
 import { friendGate, syncFriends } from "./friends.js";
 import { canRequestDocs, deliverApproved, looksLikeDocRequest, ownerCommand, processQueue, submitRequest, type Transport } from "./docs.js";
 import { autoAssignByName, upsertThread } from "./projects.js";
@@ -95,7 +97,7 @@ async function tryPair(threadId: string, uid: string, text: string): Promise<boo
   if (r === "ignored") return false;
   if (r === "ok") {
     log(`đã ghép nối tài khoản chủ: ${uid}`);
-    await sendText(threadId, "user", "✅ Đã kết nối. Từ giờ bạn có thể hỏi mình về tiến độ, khối lượng các công trình, ví dụ: \"khối lượng công trình X đến đâu rồi?\"", "out_bot");
+    await sendText(threadId, "user", "✅ Đã kết nối. Từ giờ bạn có thể hỏi mình về tiến độ, khối lượng các công trình, ví dụ: \"khối lượng công trình X đến đâu rồi?\"\nTự trả lời đang BẬT (/tatbot để tắt). Gõ /huongdan để xem các lệnh quản lý bot ngay trên Zalo.", "out_bot");
   } else {
     log(`ghép nối thất bại từ ${uid}`);
   }
@@ -113,6 +115,7 @@ async function runDocWorker() {
 }
 async function handleDocFlow(uid: string, name: string, text: string): Promise<boolean> {
   const owner = isOwner(uid);
+  if (owner && isAdminCommand(text)) { await sendText(uid, "user", runAdminCommand(uid, text), "out_bot"); return true; }
   if (owner && await ownerCommand(text, transport, (t) => sendText(uid, "user", t, "out_bot"))) return true;
   if (!canRequestDocs(uid) || !looksLikeDocRequest(text)) return false;
   const why = canBotReply(uid, owner);
@@ -188,6 +191,15 @@ api.listener.on("message", (m) => {
   if (type === "group") void ensureGroupName(m.threadId); else upsertThread(m.threadId, "user", name);
   logMessage({ ts: Number(m.data.ts) || undefined, threadId: m.threadId, threadType: type, senderId: m.data.uidFrom, senderName: name, direction: "in", text: shown });
   if (type === "group" && att && queueMedia({ msgId: String(m.data.msgId), threadId: m.threadId, ts: Number(m.data.ts) || Date.now(), sender: name, msgType: m.data.msgType, content: m.data.content })) void runDownloads();
+  // Chủ gửi tệp cho bot: nạp mẫu hồ sơ hoặc tài liệu vào bộ nhớ
+  if (type === "user" && att?.kind === "file" && isOwner(m.threadId)) {
+    const prevF = chains.get(m.threadId) ?? Promise.resolve();
+    chains.set(m.threadId, prevF.then(async () => {
+      const reply = await handleOwnerFile({ url: att.url, name: att.caption || `tep.${att.ext}` });
+      await sendText(m.threadId, "user", reply, "out_bot");
+    }).catch((e) => log("lỗi nạp tệp:", e)));
+    return;
+  }
   if (type !== "user" || text === null || !text.trim()) return; // bot chỉ trả lời tin nhắn riêng dạng chữ
 
   const prev = chains.get(m.threadId) ?? Promise.resolve();
@@ -305,5 +317,9 @@ setInterval(() => {
   if (getSettingRaw("drive_sync_request") === "1") { setSettingRaw("drive_sync_request", "0"); void runDownloads().then(() => syncToDrive()); }
 }, 3000);
 
+{
+  const code = firstRunPairCode();
+  if (code) log(`CHƯA CÓ TÀI KHOẢN CHỦ. Từ Zalo chính của bạn nhắn cho nick bot:  /ketnoi ${code}  (mã hiệu lực 24 giờ)`);
+}
 setHeartbeat();
 log("Bot sẵn sàng. bot_enabled =", getSetting("bot_enabled"), "(heartbeat trước đó:", getHeartbeat(), ")");

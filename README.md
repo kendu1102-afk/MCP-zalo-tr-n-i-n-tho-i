@@ -1,5 +1,7 @@
 # MCP Zalo + bot tự trả lời
 
+> **Bắt đầu từ đây:** [VIEC-CAN-LAM.md](VIEC-CAN-LAM.md) là danh sách các bước bạn cần làm, theo thứ tự.
+
 Kết nối **Claude Code** với **Zalo cá nhân** (qua thư viện không chính thức `zca-js`):
 
 1. **MCP server** (`src/mcp.ts`): Claude Code nạp/tìm kiến thức, đọc tin nhắn, đặt lệnh gửi tin.
@@ -53,6 +55,26 @@ Claude Code đọc `.mcp.json` trong thư mục này (chạy `claude` tại đâ
 | `reply_scope=allowlist` để chỉ trả lời một số người | `all_dm` |
 
 **Lưu ý quan trọng:** bất kỳ ai nhắn riêng đều có thể khiến bot trích nội dung tài liệu `bot_visible`. Đừng để hồ sơ nội bộ, đơn giá, thông tin thanh tra/kiểm toán ở chế độ bot được dùng. Bot cũng không nên trả lời các nội dung cần chịu trách nhiệm pháp lý (khối lượng, quyết toán, nghiệm thu) mà chưa có người duyệt: hãy chỉ nạp tài liệu thật sự an toàn để công khai.
+
+## Quản lý bot ngay trên Zalo (điện thoại)
+
+Sau khi ghép nối (`/ketnoi`), bạn nhắn lệnh cho nick bot để quản lý mọi thứ, không cần máy tính. Gõ `/huongdan` để xem đầy đủ.
+
+| Việc | Lệnh |
+|---|---|
+| Tình trạng | `/trangthai` |
+| Bật/tắt tự trả lời | `/batbot`, `/tatbot` |
+| Công trình | `/congtrinh`, `/congtrinh them Cầu ABC \| ABC, cau abc` (nhóm có tên khớp sẽ tự ghép) |
+| Ghép nhóm | `/nhom` (đánh số), `/ghep 2 Cầu ABC`, `/boghep 2` |
+| Cấp quyền làm hồ sơ | `/banbe nam` (đánh số), `/capquyen 1 Cầu ABC, QL.xx bonho` (`bonho` = dùng bộ nhớ tài khoản Claude, `riengtu` = dùng tài liệu riêng tư), `/quyen`, `/thuhoi 1` |
+| Kiến thức | `/ghinho <nội dung>`, `/tailieu`, `/congkhai <mã>`, `/riengtu <mã>` |
+| Mẫu hồ sơ | **Gửi file .docx đã đặt thẻ** cho bot → tự nạp; `/mau` để xem |
+| Nạp tài liệu | **Gửi file PDF/Word/Excel** cho bot → lưu vào bộ nhớ (riêng tư) |
+| Tổng hợp | `/tonghop`, `/tonghop 2026-11-20` |
+| Drive, cài đặt | `/drive gdrive:Cong trinh/Anh hien truong`, `/dat daily_digest_time 17:30` |
+| Duyệt hồ sơ | `duyệt 12`, `hủy 12 lý do` |
+
+`npm run kiemtra` (trên máy chủ) liệt kê bước nào đã xong, bước nào còn thiếu.
 
 ## Theo dõi khối lượng công trình từ nhóm hiện trường
 
@@ -127,4 +149,4 @@ Bạn (tài khoản chủ) cũng nhắn yêu cầu được; khi đó bot gửi 
 
 `npm run test:live` chạy kiểm thử **thật** với Claude Code (tốn lượt dùng): trích xuất tin nhắn hiện trường thật, trả lời chủ, soạn báo cáo tuần có chặn phạm vi, đọc ảnh chụp bảng khối lượng.
 
-`npm test` chạy bốn bài kiểm thử với LLM giả lập (bài ba: tải ảnh/tệp, nhật ký ngày, Drive bằng rclone giả lập, sao lưu; bài bốn: đọc ảnh/Excel, tổng hợp ngày): (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.
+`npm test` chạy năm bài kiểm thử (bài năm: lệnh quản trị qua Zalo, nạp tệp qua Zalo, mã ghép nối lần đầu); với LLM giả lập (bài ba: tải ảnh/tệp, nhật ký ngày, Drive bằng rclone giả lập, sao lưu; bài bốn: đọc ảnh/Excel, tổng hợp ngày): (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.

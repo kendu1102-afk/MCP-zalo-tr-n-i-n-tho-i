@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { db, allSettings, DEFAULT_SETTINGS, getHeartbeat, getJsonList, getSetting, getSettingRaw, setSetting, setSettingRaw, type SettingKey } from "./db.js";
-import crypto from "node:crypto";
+import { newPairCode } from "./pairing.js";
 import { friendsCount, friendsSyncedAt } from "./friends.js";
 import { driveStatus } from "./media.js";
 import { buildDigest } from "./digest.js";
@@ -392,8 +392,7 @@ server.registerTool(
     inputSchema: {},
   },
   async () => {
-    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-    setSettingRaw("pair_code", `${code}:${Date.now() + 15 * 60_000}`);
+    const code = newPairCode(15);
     return text(`Mã ghép nối: ${code} (hiệu lực 15 phút). Từ Zalo chính, nhắn tới nick bot: /ketnoi ${code}\nHiện có ${getJsonList("owner_ids").length} tài khoản chủ đã ghép. Xem/xoá bằng bot_config key=owner_ids.`);
   },
 );

@@ -59,7 +59,9 @@ Cài xong. Các bước tiếp theo (làm một lần):
   1) claude                  -> đăng nhập tài khoản Claude của bạn (mở đường link hiện ra trên điện thoại/máy tính, dán mã lại), rồi gõ /exit
   2) npm run login           -> tạo data/qr.png; tải về máy bạn để quét bằng ZALO CỦA NICK BOT:
                                 scp $USER_NAME@<IP-máy-chủ>:$DIR/data/qr.png .
+                                Xong sẽ in MÃ GHÉP NỐI: dùng Zalo chính nhắn cho nick bot  /ketnoi <mã>
   3) rclone config           -> kết nối Google Drive (xem DEPLOY.md, mục "Google Drive")
   4) sudo systemctl start zalo-bot
      journalctl -u zalo-bot -f       (xem nhật ký; Ctrl+C để thoát)
+  5) npm run kiemtra         -> xem còn thiếu bước nào. Các bước còn lại làm ngay trên Zalo (nhắn /huongdan cho nick bot).
 MSG

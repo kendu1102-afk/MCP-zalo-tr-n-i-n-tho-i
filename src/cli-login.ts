@@ -2,6 +2,7 @@ import { Zalo, type Credentials } from "zca-js";
 import { LoginQRCallbackEventType } from "zca-js";
 import { QR_PATH, SESSION_PATH } from "./config.js";
 import { saveSession } from "./zalo.js";
+import { firstRunPairCode } from "./pairing.js";
 
 console.log("Đang tạo mã QR đăng nhập Zalo...");
 const zalo = new Zalo();
@@ -25,6 +26,8 @@ await zalo.loginQR({ qrPath: QR_PATH }, async (ev) => {
       const c: Credentials = { cookie: ev.data.cookie, imei: ev.data.imei, userAgent: ev.data.userAgent };
       saveSession(c);
       console.log(`Đăng nhập thành công. Đã lưu phiên vào ${SESSION_PATH} (giữ bí mật file này).`);
+      const code = firstRunPairCode();
+      if (code) console.log(`\n>>> MÃ GHÉP NỐI TÀI KHOẢN CHỦ: ${code} (hiệu lực 24 giờ)\n    Sau khi chạy bot, dùng Zalo CHÍNH của bạn nhắn cho nick bot:  /ketnoi ${code}\n    (Nick chính cần kết bạn với nick bot.)`);
       break;
     }
   }

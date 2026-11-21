@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { getJsonList, getSetting, setSetting, setSettingRaw } from "./db.js";
 
 const MAX_FAILS = 5;
@@ -18,9 +19,24 @@ export function tryPairCommand(uid: string, text: string, now = Date.now()): "ig
     return "fail";
   }
   const owners = getJsonList("owner_ids");
+  if (!owners.length) setSetting("bot_enabled", "true"); // chủ đầu tiên ghép nối: bật tự trả lời luôn (/tatbot để tắt)
   if (!owners.includes(uid)) owners.push(uid);
   setSetting("owner_ids", JSON.stringify(owners));
   setSettingRaw("pair_code", "");
   fails = 0;
   return "ok";
+}
+
+/** Tạo mã ghép nối mới (6 số) có hiệu lực trong `minutes` phút. */
+export function newPairCode(minutes: number): string {
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+  setSettingRaw("pair_code", `${code}:${Date.now() + minutes * 60_000}`);
+  return code;
+}
+/** Lần đầu (chưa có chủ): tạo mã 24 giờ nếu chưa có mã còn hạn. Trả mã hoặc null. */
+export function firstRunPairCode(): string | null {
+  if (getJsonList("owner_ids").length) return null;
+  const [code, exp] = getSetting("pair_code").split(":");
+  if (code && Number(exp) > Date.now()) return code;
+  return newPairCode(24 * 60);
 }
