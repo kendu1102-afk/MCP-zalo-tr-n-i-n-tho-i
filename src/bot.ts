@@ -7,6 +7,7 @@ import { db, getJsonList, getSetting, getSettingRaw, getHeartbeat, logMessage, s
 import { answerForOwner, answerFromKnowledge } from "./answer.js";
 import { extractPending } from "./extract.js";
 import { tryPairCommand } from "./pairing.js";
+import { friendGate, syncFriends } from "./friends.js";
 import { autoAssignByName, upsertThread } from "./projects.js";
 import { loginWithSession } from "./zalo.js";
 
@@ -45,6 +46,7 @@ const isOwner = (uid: string) => getJsonList("owner_ids").includes(uid);
 function canBotReply(threadId: string, owner = false): string | null {
   if (getSetting("bot_enabled") !== "true") return "bot đang tắt";
   if (getJsonList("blocklist").includes(threadId)) return "nằm trong blocklist";
+  if (!owner) { const g = friendGate(threadId); if (g) return g; } // chủ đã ghép nối thì luôn được
   if (!owner && getSetting("reply_scope") === "allowlist" && !getJsonList("allowlist").includes(threadId)) return "không thuộc allowlist";
   if ((takeoverUntil.get(threadId) ?? 0) > Date.now()) return "bạn đang tự trả lời (tạm dừng)";
   const max = owner ? 60 : Number(getSetting("max_replies_per_hour"));
@@ -165,6 +167,20 @@ setInterval(async () => {
     await sleep(1500);
   }
 }, 3000);
+// Danh sách bạn bè: đồng bộ lúc khởi động, mỗi 10 phút, và ngay khi có thay đổi (kết bạn/huỷ kết bạn/chặn)
+let syncing = false;
+async function refreshFriends(why: string) {
+  if (syncing) return;
+  syncing = true;
+  try { log(`đã đồng bộ ${await syncFriends(api)} bạn bè (${why})`); }
+  catch (e) { log("không đồng bộ được danh sách bạn bè:", e instanceof Error ? e.message : e); }
+  finally { syncing = false; }
+}
+void refreshFriends("khởi động");
+setInterval(() => void refreshFriends("định kỳ"), 10 * 60_000);
+let friendEventTimer: NodeJS.Timeout | undefined;
+api.listener.on("friend_event", () => { clearTimeout(friendEventTimer); friendEventTimer = setTimeout(() => void refreshFriends("có thay đổi bạn bè"), 3000); });
+
 // Trích xuất báo cáo từ các nhóm hiện trường (mỗi 60 giây; hoặc ngay khi Claude Code yêu cầu extract_now)
 let extracting = false;
 async function runExtraction(force: boolean) {

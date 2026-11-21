@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS unanswered (
   resolved INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS friends (uid TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 -- Công trình / nhóm hiện trường / báo cáo khối lượng
@@ -110,6 +111,7 @@ db.exec("PRAGMA foreign_keys = ON;");
 // ---------- settings ----------
 export const DEFAULT_SETTINGS = {
   bot_enabled: "false",            // phải bật thủ công
+  friends_only: "true",            // chỉ trả lời người ĐÃ KẾT BẠN với nick này (chủ đã ghép nối luôn được)
   reply_scope: "all_dm",           // all_dm | allowlist
   allowlist: "[]",                 // JSON: mảng thread_id (khi reply_scope = allowlist)
   blocklist: "[]",                 // JSON: không bao giờ tự trả lời

@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { db, allSettings, DEFAULT_SETTINGS, getHeartbeat, getJsonList, getSetting, setSetting, setSettingRaw, type SettingKey } from "./db.js";
 import crypto from "node:crypto";
+import { friendsCount, friendsSyncedAt } from "./friends.js";
 import * as P from "./projects.js";
 import { addDoc, deleteDoc, extractFileText, listDocs, search, setDocVisibility } from "./knowledge.js";
 
@@ -103,7 +104,7 @@ server.registerTool(
     const un = (db.prepare("SELECT COUNT(*) AS n FROM unanswered WHERE resolved=0").get() as { n: number }).n;
     return text(
       `Bot: ${alive ? "ĐANG CHẠY" : "KHÔNG chạy (hãy chạy `npm run bot`)"}${hb ? ` (heartbeat ${fmt(hb)})` : ""}\n` +
-        `Tự trả lời: ${s.bot_enabled === "true" ? "BẬT" : "TẮT"} | phạm vi: ${s.reply_scope}\n` +
+        `Tự trả lời: ${s.bot_enabled === "true" ? "BẬT" : "TẮT"} | phạm vi: ${s.reply_scope} | chỉ bạn bè: ${s.friends_only === "true" ? "BẬT" : "TẮT"} (${friendsCount()} bạn bè, đồng bộ lần cuối ${friendsSyncedAt() ? fmt(friendsSyncedAt()!) : "CHƯA LẦN NÀO"})\n` +
         `Tin chờ gửi: ${pending} | Câu hỏi chưa trả lời được: ${un}`,
     );
   },

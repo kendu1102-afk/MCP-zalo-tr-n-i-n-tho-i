@@ -12,6 +12,8 @@ const { answerForOwner, answerFromKnowledge } = await import("./answer.js");
 const { addDoc } = await import("./knowledge.js");
 const { setLlmForTest } = await import("./llm.js");
 const { tryPairCommand } = await import("./pairing.js");
+const { friendGate, syncFriends } = await import("./friends.js");
+const { setSetting } = await import("./db.js");
 
 const ok = (m: string) => console.log("✔", m);
 const cau = P.createProject("Cầu ABC", ["cau abc", "ABC"], "Sửa chữa cầu ABC");
@@ -137,6 +139,20 @@ for (let i = 0; i < 5; i++) tryPairCommand("u3", "/ketnoi 000000");
 assert.equal(tryPairCommand("u3", "/ketnoi 333333"), "fail", "dò sai 5 lần -> huỷ mã");
 assert.deepEqual(getJsonList("owner_ids"), ["u1"]);
 ok("ghép nối: đúng mã mới vào, dùng một lần, hết hạn bị từ chối, dò mã 5 lần thì huỷ mã");
+
+// --- chỉ bạn bè ---
+assert.match(friendGate("f1")!, /chưa đồng bộ/, "chưa đồng bộ -> từ chối (an toàn)");
+const mk = (n: number, off = 0) => Array.from({ length: n }, (_, i) => ({ userId: `f${i + off}`, displayName: `Bạn ${i + off}` }));
+const fakeApi = (list: { userId: string }[], failAt = 0) => ({ getAllFriends: async (c = 200, page = 1) => { if (failAt && page === failAt) throw new Error("lỗi mạng"); return list.slice((page - 1) * c, page * c); } });
+assert.equal(await syncFriends(fakeApi(mk(450))), 450, "phân trang đủ 450 bạn (3 trang)");
+assert.equal(friendGate("f449"), null); assert.match(friendGate("stranger")!, /không phải bạn bè/);
+await assert.rejects(syncFriends(fakeApi(mk(450, 1000), 2)));
+assert.equal(friendGate("f449"), null, "đồng bộ lỗi giữa chừng -> giữ danh sách cũ");
+assert.match(friendGate("f1001")!, /không phải bạn bè/);
+await syncFriends(fakeApi(mk(10)));
+assert.match(friendGate("f449")!, /không phải bạn bè/, "huỷ kết bạn -> bị loại sau lần đồng bộ sau");
+setSetting("friends_only", "false"); assert.equal(friendGate("ai-do"), null); setSetting("friends_only", "true");
+ok("chỉ bạn bè: phân trang, chưa đồng bộ thì từ chối, lỗi giữa chừng giữ danh sách cũ, huỷ kết bạn thì bị loại, tắt được bằng cấu hình");
 
 // --- xoá công trình -> cascade ---
 P.deleteProject(ql.id);

@@ -31,6 +31,7 @@ Claude Code đọc `.mcp.json` trong thư mục này (chạy `claude` tại đâ
 | Cơ chế | Mặc định |
 |---|---|
 | Bot tắt cho đến khi bạn bật | `bot_enabled=false` |
+| **Chỉ trả lời người đã kết bạn với nick bot** (danh sách bạn bè đồng bộ khi khởi động, mỗi 10 phút và khi có thay đổi; chưa đồng bộ được thì không trả lời ai) | `friends_only=true` |
 | Chỉ trả lời DM dạng chữ, không bao giờ trả lời nhóm | cố định |
 | Số liệu công trình chỉ cho tài khoản đã ghép nối (`/ketnoi`) | `owner_ids` rỗng |
 | Chỉ dùng tài liệu `bot_visible=true`; tài liệu riêng tư chỉ Claude Code thấy | `kb_set_visibility` |
@@ -64,7 +65,7 @@ Bạn nhắn "Cầu ABC đến đâu rồi?" ──► bot trả lời từ số
 
 **Từ đó:** hiện trường báo trong nhóm → sau khi nhóm yên 90 giây bot tự trích xuất → bạn hỏi "khối lượng Cầu ABC đến đâu rồi?" là có đáp ngay (bot xử lý nốt các tin chưa trích xuất trước khi trả lời). Hỏi mà không nêu công trình, khi có nhiều công trình, bot sẽ hỏi lại thay vì đoán.
 
-**Quyền truy cập:** chỉ tài khoản đã ghép nối (`owner_ids`) mới xem được báo cáo công trình và tài liệu riêng tư. Người khác nhắn riêng chỉ nhận câu trả lời từ tài liệu `bot_visible`, **không bao giờ** thấy số liệu công trình. Bot không trả lời trong nhóm.
+**Quyền truy cập:** người lạ chưa kết bạn không được bot trả lời. Chỉ tài khoản đã ghép nối (`owner_ids`) mới xem được báo cáo công trình và tài liệu riêng tư. Người khác nhắn riêng chỉ nhận câu trả lời từ tài liệu `bot_visible`, **không bao giờ** thấy số liệu công trình. Bot không trả lời trong nhóm.
 
 ### Giới hạn bạn cần biết (quan trọng với hồ sơ thanh tra, kiểm toán)
 
