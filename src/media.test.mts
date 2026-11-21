@@ -8,12 +8,12 @@ import { execFileSync } from "node:child_process";
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), "zalo-mediatest-"));
 process.env.ZALO_MCP_HOME = path.join(HOME, "data");
-const DRIVE = path.join(HOME, "GoogleDrive");
+const DRIVE = path.join(HOME, "GoogleDrive", "Drive"); // rclone giả ánh xạ "fakedrive:<x>" -> HOME/GoogleDrive/<x>
 // rclone giả: "move SRC DST ..." -> chép sang DST rồi xoá nguồn (trừ *.part); "copy FILE DST" -> chép; FAIL=1 -> lỗi
 const fake = path.join(HOME, "rclone");
 fs.writeFileSync(fake, `#!/bin/sh
 [ -f "${HOME}/FAIL" ] && { echo "Failed to create file system: token expired" >&2; exit 1; }
-cmd="$1"; src="$2"; dst="$3"
+cmd="$1"; src="$2"; dst="${HOME}/GoogleDrive/\${3#fakedrive:}"
 mkdir -p "$dst"
 if [ "$cmd" = move ]; then cp -r "$src"/. "$dst"/ && find "$src" -type f ! -name '*.part' -delete && find "$src" -mindepth 1 -type d -empty -delete; fi
 if [ "$cmd" = copy ]; then cp "$src" "$dst"/; fi
@@ -81,7 +81,7 @@ ok("nhật ký ngày: bảng khối lượng + toàn bộ tin nhắn, ghi rõ ch
 
 // ---- đẩy lên Drive ----
 assert.equal(await M.syncToDrive(), null, "chưa đặt drive_remote thì không làm gì");
-setSetting("drive_remote", DRIVE);
+setSetting("drive_remote", "fakedrive:Drive");
 fs.writeFileSync(path.join(HOME, "FAIL"), "");
 assert.equal(await M.syncToDrive(), null);
 assert.match(M.driveStatus().lastResult, /token expired/);
