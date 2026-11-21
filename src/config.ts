@@ -20,3 +20,7 @@ fs.mkdirSync(DOCS_DIR, { recursive: true, mode: 0o700 });
 /** Thư mục chờ: ảnh/video/file và nhật ký đã sắp theo "Công trình/Ngày/", được rclone chuyển lên Google Drive rồi xoá. */
 export const DRIVE_OUT_DIR = path.join(DATA_DIR, "drive-out");
 fs.mkdirSync(DRIVE_OUT_DIR, { recursive: true, mode: 0o700 });
+
+/** Bản sao tạm của ảnh/tệp chờ Claude đọc nội dung (tách khỏi thư mục chờ lên Drive). */
+export const READ_DIR = path.join(DATA_DIR, "media-read");
+fs.mkdirSync(READ_DIR, { recursive: true, mode: 0o700 });

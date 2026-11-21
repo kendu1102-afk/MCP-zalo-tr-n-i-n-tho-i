@@ -5,6 +5,7 @@ import { db, allSettings, DEFAULT_SETTINGS, getHeartbeat, getJsonList, getSettin
 import crypto from "node:crypto";
 import { friendsCount, friendsSyncedAt } from "./friends.js";
 import { driveStatus } from "./media.js";
+import { buildDigest } from "./digest.js";
 import * as P from "./projects.js";
 import * as D from "./docs.js";
 import { getTemplate, importTemplate, listTemplates } from "./templates.js";
@@ -530,10 +531,16 @@ server.registerTool(
     const pr = need(project);
     const start = date ? Date.parse(`${date}T00:00:00+07:00`) : 0;
     const end = date ? start + 86_400_000 : 8.64e15;
-    const rows = db.prepare("SELECT kind,sender,caption,rel_path,status,error,ts FROM media WHERE project_id=? AND ts>=? AND ts<? ORDER BY ts DESC LIMIT ?").all(pr.id, start, end, limit) as { kind: string; sender: string; caption: string; rel_path: string; status: string; error: string; ts: number }[];
+    const rows = db.prepare("SELECT kind,sender,caption,rel_path,status,error,ts,content_text FROM media WHERE project_id=? AND ts>=? AND ts<? ORDER BY ts DESC LIMIT ?").all(pr.id, start, end, limit) as { kind: string; sender: string; caption: string; rel_path: string; status: string; error: string; ts: number; content_text: string }[];
     if (!rows.length) return text("Không có tệp nào.");
-    return text(rows.map((r) => `${fmt(r.ts)} | ${r.kind} | ${r.sender} | ${r.status}${r.error && r.status !== "uploaded" ? ` (${r.error})` : ""}\n   ${r.rel_path}${r.caption ? `\n   chú thích: ${r.caption}` : ""}`).join("\n"));
+    return text(rows.map((r) => `${fmt(r.ts)} | ${r.kind} | ${r.sender} | ${r.status}${r.error && r.status !== "uploaded" ? ` (${r.error})` : ""}\n   ${r.rel_path}${r.caption ? `\n   chú thích: ${r.caption}` : ""}${r.content_text ? `\n   nội dung: ${r.content_text.slice(0, 300)}` : ""}`).join("\n"));
   },
+);
+
+server.registerTool(
+  "daily_digest",
+  { description: "Xem bản tổng hợp hiện trường của một ngày (bot tự gửi cho chủ tài khoản mỗi ngày vào giờ daily_digest_time). Dùng làm khung khi soạn báo cáo ngày cho chủ đầu tư.", inputSchema: { date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() } },
+  async ({ date }) => text(buildDigest(date)),
 );
 
 await server.connect(new StdioServerTransport());

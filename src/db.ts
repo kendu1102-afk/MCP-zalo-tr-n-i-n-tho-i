@@ -146,6 +146,9 @@ CREATE TABLE IF NOT EXISTS work_targets (
 );
 `);
 try { db.exec("ALTER TABLE requesters ADD COLUMN account_memory INTEGER NOT NULL DEFAULT 0"); } catch { /* đã có */ }
+for (const col of ["read_status TEXT NOT NULL DEFAULT ''", "content_text TEXT NOT NULL DEFAULT ''", "read_attempts INTEGER NOT NULL DEFAULT 0"]) {
+  try { db.exec(`ALTER TABLE media ADD COLUMN ${col}`); } catch { /* đã có */ }
+}
 // extracted: 0 = chờ xử lý, 1 = đã trích xuất, 2 = bỏ qua (không phải báo cáo)
 try { db.exec("ALTER TABLE messages ADD COLUMN extracted INTEGER NOT NULL DEFAULT 0"); } catch { /* đã có */ }
 db.exec("PRAGMA foreign_keys = ON;");
@@ -172,7 +175,9 @@ export const DEFAULT_SETTINGS = {
   drive_remote: "",                // ví dụ "gdrive:Cong trinh/Anh hien truong" (remote rclone + thư mục). Trống = chỉ lưu trên máy chủ
   media_scope: "mapped",           // mapped = chỉ nhóm đã ghép công trình | all_groups = mọi nhóm nick bot tham gia
   media_kinds: "photo,video,file", // loại tệp cần tải
-  drive_text_logs: "true",         // ghi nhật ký chữ mỗi ngày (tin nhắn + bảng khối lượng) lên Drive
+  drive_text_logs: "true",
+  media_read: "all",               // all = Claude đọc ảnh + tệp (Excel/PDF/Word) | files = chỉ tệp | off = không đọc
+  daily_digest_time: "18:00",      // giờ VN gửi bản tổng hợp ngày cho chủ qua Zalo; trống = tắt         // ghi nhật ký chữ mỗi ngày (tin nhắn + bảng khối lượng) lên Drive
   persona: "Bạn là trợ lý của một kỹ sư quản lý dự án cầu đường và bảo dưỡng thường xuyên đường bộ.",
 } as const;
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

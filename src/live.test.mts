@@ -69,5 +69,31 @@ assert.ok(/12/.test(text) && /120/.test(text), "có số liệu trong kỳ");
 assert.ok(!text.includes("777"), "KHÔNG có số liệu công trình ngoài phạm vi dù người yêu cầu đòi");
 assert.ok(sent.some((s) => s.to === "own" && s.file) && !sent.some((s) => s.to === "f1" && s.file));
 
+step("5. Claude đọc ảnh chụp bảng khối lượng -> trích xuất -> tổng hợp");
+let chromium: any = null;
+try { const { createRequire } = await import("node:module"); ({ chromium } = createRequire(import.meta.url)("playwright")); } catch { /* không có trình duyệt */ }
+if (!chromium) console.log("(bỏ qua: không có Playwright để tạo ảnh thử)");
+else {
+  const M = await import("./media.js");
+  const { readPendingMedia } = await import("./mediaread.js");
+  const b = await chromium.launch(); const pg = await b.newPage({ viewport: { width: 700, height: 380 } });
+  await pg.setContent(`<body style="font-family:serif;padding:20px"><h3>BÁO CÁO NGÀY 21/11 - CẦU ABC</h3><table border=1 cellpadding=6 style="border-collapse:collapse">
+    <tr><th>Hạng mục</th><th>ĐV</th><th>KL hôm nay</th><th>Lũy kế</th></tr>
+    <tr><td>Đổ bê tông bản mặt cầu nhịp 1</td><td>m3</td><td>36,5</td><td>36,5</td></tr>
+    <tr><td>Lắp dựng ván khuôn trụ T2</td><td>m2</td><td>84</td><td>210</td></tr></table></body>`);
+  const png = await pg.screenshot(); await b.close();
+  const http = await import("node:http");
+  const srv = http.createServer((_q, r) => { r.writeHead(200); r.end(png); });
+  await new Promise<void>((r) => srv.listen(0, r));
+  M.queueMedia({ msgId: "anh1", threadId: "g1", ts: Date.now() - 60_000, sender: "Anh Tuấn", msgType: "chat.photo", content: { href: `http://127.0.0.1:${(srv.address() as any).port}/a.png` } });
+  await M.downloadPending(); srv.close();
+  while ((await readPendingMedia()) > 0) { /* đọc */ }
+  await extractPending({ force: true });
+  const after = P.listReports(cau.id);
+  console.table(after.map((x) => ({ hang_muc: x.item, kl: x.quantity, dv: x.unit, luy_ke: x.cumulative })));
+  assert.ok(after.some((x) => x.quantity === 36.5 && /bản mặt/i.test(x.item)), "đọc được 36,5 m3 từ ảnh");
+  assert.ok(after.some((x) => x.quantity === 84 && x.cumulative === 210), "đọc được 84 m2, lũy kế 210 từ ảnh");
+}
+
 console.log(`\nTẤT CẢ ĐẠT (chạy thật, ${Math.round((Date.now() - t0) / 1000)}s)`);
 fs.rmSync(process.env.ZALO_MCP_HOME!, { recursive: true, force: true });

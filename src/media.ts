@@ -5,7 +5,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { DRIVE_OUT_DIR } from "./config.js";
+import { DRIVE_OUT_DIR, READ_DIR } from "./config.js";
 import { db, getSetting, getSettingRaw, setSettingRaw } from "./db.js";
 import { projectsOfThread, vnDate, type Project } from "./projects.js";
 
@@ -75,7 +75,7 @@ export function queueMedia(m: { msgId: string; threadId: string; ts: number; sen
 
 /** Tải các tệp đang chờ vào thư mục chờ. */
 export async function downloadPending(limit = 10): Promise<number> {
-  const rows = db.prepare("SELECT id,url,rel_path FROM media WHERE status='pending' AND attempts<? ORDER BY id LIMIT ?").all(MAX_ATTEMPTS, limit) as { id: number; url: string; rel_path: string }[];
+  const rows = db.prepare("SELECT id,url,rel_path,kind FROM media WHERE status='pending' AND attempts<? ORDER BY id LIMIT ?").all(MAX_ATTEMPTS, limit) as { id: number; url: string; rel_path: string; kind: string }[];
   let ok = 0;
   for (const r of rows) {
     const dest = path.join(DRIVE_OUT_DIR, r.rel_path);
@@ -89,7 +89,11 @@ export async function downloadPending(limit = 10): Promise<number> {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.writeFileSync(dest + ".part", buf);
       fs.renameSync(dest + ".part", dest);
-      db.prepare("UPDATE media SET status='downloaded', size=?, error='' WHERE id=?").run(buf.length, r.id);
+      // giữ một bản riêng để Claude đọc nội dung (bản trong thư mục chờ sẽ bị chuyển lên Drive)
+      const mode = getSetting("media_read");
+      const readIt = mode === "all" || (mode === "files" && r.kind === "file");
+      if (readIt) fs.writeFileSync(path.join(READ_DIR, `${r.id}${path.extname(dest)}`), buf);
+      db.prepare("UPDATE media SET status='downloaded', size=?, error='', read_status=? WHERE id=?").run(buf.length, readIt ? "pending" : "", r.id);
       ok++;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -124,6 +128,7 @@ export function writeDailyLogs(dates: string[]): number {
         `(Tự động tổng hợp từ nhóm Zalo. Số liệu là báo cáo hiện trường, CHƯA nghiệm thu. Ảnh/tệp trong ngày: ${media}, lưu cùng thư mục.)`,
         `\n# KHỐI LƯỢNG TRÍCH XUẤT TRONG NGÀY`,
         ...(reps.length ? reps.map((r) => `- ${r.item}: ${r.quantity ?? "không nêu"} ${r.unit}${r.cumulative !== null ? ` (lũy kế nêu: ${r.cumulative})` : ""}${r.location ? ` | ${r.location}` : ""}${r.reporter ? ` | ${r.reporter}` : ""}${r.note ? ` | ${r.note}` : ""}${r.confidence === "low" ? " | CẦN SOÁT" : ""}`) : ["(không có)"]),
+        ...mediaSection(p.id, start, end),
         `\n# TIN NHẮN`,
         ...(lines.length ? lines : ["(không có)"]),
         "",
@@ -135,6 +140,13 @@ export function writeDailyLogs(dates: string[]): number {
     }
   }
   return n;
+}
+
+function mediaSection(projectId: number, start: number, end: number): string[] {
+  const rows = db.prepare("SELECT ts,sender,kind,rel_path,content_text FROM media WHERE project_id=? AND ts>=? AND ts<? ORDER BY ts").all(projectId, start, end) as { ts: number; sender: string; kind: string; rel_path: string; content_text: string }[];
+  if (!rows.length) return [];
+  return [`\n# ẢNH / VIDEO / TỆP (${rows.length})`, ...rows.map((r) =>
+    `- [${new Date(r.ts).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour12: false })}] ${r.sender}: ${path.basename(r.rel_path)}${r.content_text ? `\n    ${r.content_text.replace(/\s*\n\s*/g, " / ").slice(0, 400)}` : ""}`)];
 }
 
 function runRclone(args: string[]): Promise<void> {

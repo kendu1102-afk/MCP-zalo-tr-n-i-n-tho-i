@@ -83,7 +83,9 @@ Bạn nhắn "Cầu ABC đến đâu rồi?" ──► bot trả lời từ số
 - Đây là **số liệu báo cáo hiện trường, chưa nghiệm thu**; bot luôn nói rõ như vậy. Không dùng làm căn cứ thanh toán/quyết toán nếu chưa đối chiếu hồ sơ.
 - Tin nhắn Zalo là văn bản tự do nên **việc trích xuất có thể sai** (nhầm số, đơn vị, ngày, công trình). Dòng nghi ngờ được gắn "độ tin cậy thấp"; tin đính chính ("nhầm, sửa lại") được ghi thêm chứ không tự ghi đè dòng cũ nên có thể bị tính hai lần: kiểm tra bằng `report_list`, sửa/xoá bằng `report_update` / `report_delete`, gộp tên hạng mục khác nhau bằng `report_merge_items`. Mọi dòng đều lưu id tin nhắn nguồn.
 - Hiện trường báo **lũy kế** và **trong ngày** lẫn lộn: hệ thống chỉ cộng khối lượng trong ngày, còn lũy kế hiện trường tự nêu được lưu riêng và bot nêu cả hai khi chúng lệch nhau.
-- Ảnh, video, tệp trong nhóm được **tải về và lưu lên Google Drive** theo `Công trình/Ngày/` (xem DEPLOY.md), nhưng **Claude chưa đọc nội dung ảnh hoặc tệp** để trích khối lượng. Chỉ chú thích đi kèm ảnh mới được đưa vào trích xuất.
+- Ảnh, video, tệp trong nhóm được **tải về và lưu lên Google Drive** theo `Công trình/Ngày/` (xem DEPLOY.md).
+- **Claude đọc nội dung ảnh và tệp** (`media_read=all`): ảnh chụp bảng khối lượng, sổ nhật ký, phiếu, biên bản được chép lại; tệp Excel (.xlsx), PDF có chữ, Word, CSV được lấy chữ. Cả hai đều đưa vào trích xuất khối lượng như tin nhắn. Ảnh công trường thông thường chỉ được mô tả ngắn để ghi vào nhật ký ngày. Ảnh được gửi theo lô 8 ảnh mỗi lần để tiết kiệm lượt dùng; đặt `media_read=files` để chỉ đọc tệp, `off` để tắt. Chưa đọc được: Excel đời cũ (.xls), PDF dạng ảnh scan, bản vẽ CAD, video.
+- **Bản tổng hợp cuối ngày** gửi bạn qua Zalo lúc `daily_digest_time` (mặc định 18:00): khối lượng từng công trình, mục cần soát, nhóm im lặng cả ngày, số ảnh, hồ sơ chờ duyệt. Xem trước bằng `daily_digest`.
 - Báo cáo chỉ được ghi từ lúc bot đang chạy và nick đã ở trong nhóm.
 
 ## Làm hồ sơ theo mẫu công ty (báo cáo, tờ trình...)
@@ -118,11 +120,11 @@ Bạn (tài khoản chủ) cũng nhắn yêu cầu được; khi đó bot gửi 
 - Zalo: `zalo_status`, `zalo_list_conversations`, `zalo_read_messages`, `zalo_send_message`, `zalo_unanswered`, `zalo_new_pair_code`, `bot_config`
 - Công trình/nhóm: `project_create`, `project_update`, `project_delete`, `project_list`, `group_list`, `group_assign`, `group_unassign`, `extract_now`
 - Hồ sơ theo mẫu: `friend_list`, `requester_add`, `requester_list`, `requester_remove`, `template_list`, `template_import`, `template_create_sample`, `doc_jobs`, `doc_approve`, `doc_reject`
-- Google Drive: `drive_status`, `drive_sync_now`, `media_list`
+- Google Drive và tổng hợp: `drive_status`, `drive_sync_now`, `media_list`, `daily_digest`
 - Báo cáo khối lượng: `report_summary`, `report_list`, `report_add`, `report_update`, `report_delete`, `report_merge_items`, `report_set_target`
 
 ## Kiểm thử
 
-`npm run test:live` chạy kiểm thử **thật** với Claude Code (tốn lượt dùng): trích xuất tin nhắn hiện trường thật, trả lời chủ, soạn báo cáo tuần có chặn phạm vi.
+`npm run test:live` chạy kiểm thử **thật** với Claude Code (tốn lượt dùng): trích xuất tin nhắn hiện trường thật, trả lời chủ, soạn báo cáo tuần có chặn phạm vi, đọc ảnh chụp bảng khối lượng.
 
-`npm test` chạy ba bài kiểm thử với LLM giả lập (bài thứ ba: tải ảnh/tệp, nhật ký ngày, đẩy lên Drive bằng rclone giả lập, sao lưu): (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.
+`npm test` chạy bốn bài kiểm thử với LLM giả lập (bài ba: tải ảnh/tệp, nhật ký ngày, Drive bằng rclone giả lập, sao lưu; bài bốn: đọc ảnh/Excel, tổng hợp ngày): (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.

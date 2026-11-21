@@ -10,7 +10,7 @@
     "bot": "tsx src/bot.ts",
     "mcp": "tsx src/mcp.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts && tsx src/media.test.mts",
+    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts && tsx src/media.test.mts && tsx src/mediaread.test.mts",
     "sample-template": "tsx src/sample-template.ts",
     "test:live": "tsx src/live.test.mts",
     "backup": "bash deploy/backup.sh"
@@ -23,6 +23,7 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "docx": "^9.16.0",
     "docxtemplater": "^3.71.1",
+    "exceljs": "^4.4.0",
     "mammoth": "^1.13.0",
     "pizzip": "^3.3.0",
     "unpdf": "^1.9.1",

@@ -108,7 +108,7 @@ export function search(query: string, opts: { limit?: number; botOnly?: boolean 
   return rows;
 }
 
-/** Đọc nội dung chữ từ file: txt/md/csv/json/docx/pdf. */
+/** Đọc nội dung chữ từ file: txt/md/csv/json/docx/pdf/xlsx. */
 export async function extractFileText(filePath: string): Promise<string> {
   const ext = path.extname(filePath).toLowerCase();
   const buf = fs.readFileSync(filePath);
@@ -125,7 +125,25 @@ export async function extractFileText(filePath: string): Promise<string> {
       const { text } = await extractText(pdf, { mergePages: true });
       return text;
     }
+    case ".xlsx": case ".xlsm": {
+      const { default: ExcelJS } = await import("exceljs");
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf as unknown as ArrayBuffer);
+      const out: string[] = [];
+      wb.eachSheet((ws) => {
+        out.push(`=== Sheet: ${ws.name} ===`);
+        let n = 0;
+        ws.eachRow({ includeEmpty: false }, (row) => {
+          if (n++ >= 500) return;
+          const cells: string[] = [];
+          row.eachCell({ includeEmpty: true }, (cell) => { cells.push(String(cell.text ?? "").replace(/\s+/g, " ").trim()); });
+          while (cells.length && !cells[cells.length - 1]) cells.pop();
+          if (cells.some(Boolean)) out.push(cells.join(" | "));
+        });
+      });
+      return out.join("\n");
+    }
     default:
-      throw new Error(`Chưa hỗ trợ định dạng ${ext || "(không đuôi)"}. Hỗ trợ: txt, md, csv, json, docx, pdf.`);
+      throw new Error(`Chưa hỗ trợ định dạng ${ext || "(không đuôi)"}. Hỗ trợ: txt, md, csv, json, docx, pdf, xlsx.`);
   }
 }

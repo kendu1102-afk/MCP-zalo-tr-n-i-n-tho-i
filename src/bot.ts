@@ -10,6 +10,9 @@ import { checkClaudeCode } from "./claudecode.js";
 import { extractPending } from "./extract.js";
 import { tryPairCommand } from "./pairing.js";
 import { attachmentLabel, downloadPending, parseAttachment, queueMedia, syncToDrive } from "./media.js";
+import { readPendingMedia } from "./mediaread.js";
+import { buildDigest, digestDue } from "./digest.js";
+import { vnDate } from "./projects.js";
 import { friendGate, syncFriends } from "./friends.js";
 import { canRequestDocs, deliverApproved, looksLikeDocRequest, ownerCommand, processQueue, submitRequest, type Transport } from "./docs.js";
 import { autoAssignByName, upsertThread } from "./projects.js";
@@ -268,6 +271,35 @@ async function runDownloads() {
   finally { downloading = false; }
 }
 setInterval(() => void runDownloads(), 10_000);
+
+// Claude đọc nội dung ảnh/tệp (bảng khối lượng chụp, Excel, PDF...) -> đưa vào trích xuất
+let reading = false;
+async function runReads() {
+  if (reading || !engineReady() || getSetting("media_read") === "off") return;
+  reading = true;
+  try { for (let i = 0; i < 5 && (await readPendingMedia()) > 0; i++) { /* đọc tiếp */ } }
+  catch (e) { log("lỗi đọc ảnh/tệp:", e); }
+  finally { reading = false; }
+}
+setInterval(() => void runReads(), 20_000);
+
+// Bản tổng hợp cuối ngày gửi chủ tài khoản
+let digesting = false;
+setInterval(async () => {
+  if (digesting || !digestDue(getSetting("daily_digest_time"), getSettingRaw("digest_last_date"))) return;
+  const owners = getJsonList("owner_ids");
+  if (!owners.length) return;
+  digesting = true;
+  try {
+    await runReads();
+    if (engineReady()) await extractPending({ force: true }).catch(() => {});
+    const textDigest = buildDigest();
+    for (const o of owners) await sendText(o, "user", textDigest, "out_bot");
+    setSettingRaw("digest_last_date", vnDate(Date.now()));
+    log("đã gửi bản tổng hợp ngày cho chủ tài khoản");
+  } catch (e) { log("lỗi gửi bản tổng hợp:", e); }
+  finally { digesting = false; }
+}, 60_000);
 setInterval(() => void syncToDrive(), 10 * 60_000);
 setInterval(() => {
   if (getSettingRaw("drive_sync_request") === "1") { setSettingRaw("drive_sync_request", "0"); void runDownloads().then(() => syncToDrive()); }

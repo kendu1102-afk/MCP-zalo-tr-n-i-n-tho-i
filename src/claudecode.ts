@@ -32,6 +32,8 @@ export type CcRun = {
   useMemory: boolean;
   /** MCP chỉ-đọc theo phạm vi (cho agent soạn hồ sơ). Phạm vi do bot đặt qua biến môi trường, mô hình không đổi được. */
   scope?: Record<string, unknown>;
+  /** Ảnh gửi kèm trong NỘI DUNG tin nhắn (không cần bật công cụ đọc file). */
+  images?: { mediaType: string; base64: string }[];
 };
 
 export async function runClaudeCode(o: CcRun): Promise<unknown> {
@@ -43,8 +45,10 @@ async function runOnce(o: CcRun): Promise<unknown> {
   try {
     const sysFile = path.join(tmp, "system.txt");
     fs.writeFileSync(sysFile, o.systemPrompt);
+    const withImages = !!o.images?.length;
     const args = [
-      "-p", "--output-format", "json", "--no-session-persistence",
+      "-p", "--no-session-persistence",
+      ...(withImages ? ["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"] : ["--output-format", "json"]),
       "--tools", "",
       "--system-prompt-file", sysFile,
       "--json-schema", JSON.stringify(o.jsonSchema),
@@ -79,10 +83,18 @@ async function runOnce(o: CcRun): Promise<unknown> {
       child.stderr.on("data", (d) => (stderr += d));
       child.on("error", (e) => { clearTimeout(timer); reject(new Error(`Không chạy được "${CLAUDE_BIN}": ${e.message}. Cài Claude Code và đăng nhập bằng lệnh: claude`)); });
       child.on("close", (code) => { clearTimeout(timer); code === 0 || stdout ? resolve(stdout) : reject(new Error(`Claude Code thoát mã ${code}: ${stderr.slice(-500)}`)); });
-      child.stdin.end(o.prompt);
+      child.stdin.end(withImages
+        ? JSON.stringify({ type: "user", message: { role: "user", content: [
+            ...o.images!.map((im) => ({ type: "image", source: { type: "base64", media_type: im.mediaType, data: im.base64 } })),
+            { type: "text", text: o.prompt },
+          ] } }) + "\n"
+        : o.prompt);
     });
     let j: { is_error?: boolean; subtype?: string; result?: string; structured_output?: unknown };
-    try { j = JSON.parse(out); } catch { throw new Error(`Kết quả Claude Code không đọc được: ${out.slice(0, 300)}`); }
+    try {
+      // stream-json: mỗi dòng một sự kiện, dòng "result" chứa kết quả cuối
+      j = withImages ? JSON.parse(out.trim().split("\n").reverse().find((l) => l.includes('"type":"result"')) ?? "{}") : JSON.parse(out);
+    } catch { throw new Error(`Kết quả Claude Code không đọc được: ${out.slice(0, 300)}`); }
     if (j.is_error || j.structured_output === undefined) throw new Error(`Claude Code lỗi (${j.subtype ?? "?"}): ${String(j.result ?? "").slice(0, 300)}`);
     return j.structured_output;
   } finally {

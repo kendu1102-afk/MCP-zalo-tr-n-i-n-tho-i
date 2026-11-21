@@ -99,7 +99,7 @@ async function extractThread(threadId: string, force: boolean): Promise<{ messag
   if (!work.length) return { messages: pending.length, items: 0 };
 
   const ctx = (db.prepare("SELECT id,ts,sender_name,text,extracted,direction FROM messages WHERE thread_id=? AND id<? ORDER BY id DESC LIMIT ?").all(threadId, work[0].id, CONTEXT) as Msg[]).reverse();
-  const fmt = (m: Msg) => `[id=${m.id} | ${new Date(m.ts).toLocaleString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" })} | ${m.sender_name || "?"}] ${m.text.slice(0, 1500)}`;
+  const fmt = (m: Msg) => `[id=${m.id} | ${new Date(m.ts).toLocaleString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" })} | ${m.sender_name || "?"}] ${m.text.slice(0, m.text.startsWith("[Nội dung") ? 12000 : 1500)}`;
   const userText = [
     `CÔNG TRÌNH của nhóm này và các hạng mục đã có:`,
     ...projects.map((p) => `- ${p.name}${p.aliases.length ? ` (còn gọi: ${p.aliases.join(", ")})` : ""}: ${itemNames(p.id).join("; ") || "(chưa có)"}`),

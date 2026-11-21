@@ -6,6 +6,7 @@ export type LlmParams = Anthropic.MessageCreateParamsNonStreaming;
 export type LlmResult = Anthropic.Message;
 export type LlmOpts = { useMemory?: boolean };
 export type LlmFn = (p: LlmParams, o?: LlmOpts) => Promise<LlmResult>;
+export type ImageIn = { mediaType: string; base64: string };
 
 let override: LlmFn | null = null;
 let client: Anthropic | null = null;
@@ -48,3 +49,20 @@ export async function callClaude(p: LlmParams, o: LlmOpts = {}): Promise<LlmResu
 
 export const textOf = (r: LlmResult): string =>
   r.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
+
+/** Gửi ảnh (nếu có) + yêu cầu, nhận về JSON theo schema. Dùng cho đọc ảnh/tệp hiện trường. */
+export async function askStructured(system: string, prompt: string, schema: Record<string, unknown>, images: ImageIn[] = []): Promise<unknown> {
+  const tool = { name: "ket_qua", description: "Trả kết quả", input_schema: schema as Anthropic.Tool["input_schema"] };
+  if (override || engine() === "api") {
+    const content: Anthropic.ContentBlockParam[] = [
+      ...images.map((im) => ({ type: "image" as const, source: { type: "base64" as const, media_type: im.mediaType as "image/jpeg", data: im.base64 } })),
+      { type: "text" as const, text: prompt },
+    ];
+    const p: LlmParams = { model: process.env.ZALO_BOT_MODEL ?? "claude-sonnet-5-5", max_tokens: 8000, system, tools: [tool], tool_choice: { type: "tool", name: "ket_qua" }, messages: [{ role: "user", content }] };
+    const r = override ? await override(p) : await (client ??= new Anthropic()).messages.create(p);
+    const u = r.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+    if (!u) throw new Error("Không có kết quả có cấu trúc");
+    return u.input;
+  }
+  return runClaudeCode({ prompt, systemPrompt: system, jsonSchema: schema, useMemory: false, images });
+}
