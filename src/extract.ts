@@ -64,7 +64,8 @@ const SYSTEM = [
 ].join("\n");
 
 function isTrivial(text: string): boolean {
-  return text.startsWith("[tệp/ảnh") || (text.trim().length < 8 && !/\d/.test(text));
+  // ảnh/video/tệp KHÔNG có chú thích thì bỏ qua; có chú thích (vd "[ảnh: đổ bê tông M1 xong 12m3]") vẫn đưa đi trích xuất
+  return text.startsWith("[tệp/ảnh") || /^\[(ảnh|video|tệp)\]$/.test(text.trim()) || (text.trim().length < 8 && !/\d/.test(text));
 }
 
 /** Xử lý các tin nhóm chờ trích xuất. force=true bỏ qua việc chờ yên tĩnh. */

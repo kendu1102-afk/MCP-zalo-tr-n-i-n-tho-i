@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db, allSettings, DEFAULT_SETTINGS, getHeartbeat, getJsonList, getSetting, getSettingRaw, setSetting, setSettingRaw, type SettingKey } from "./db.js";
 import crypto from "node:crypto";
 import { friendsCount, friendsSyncedAt } from "./friends.js";
+import { driveStatus } from "./media.js";
 import * as P from "./projects.js";
 import * as D from "./docs.js";
 import { getTemplate, importTemplate, listTemplates } from "./templates.js";
@@ -498,6 +499,41 @@ server.registerTool(
   "doc_reject",
   { description: "Hủy một hồ sơ đang chờ duyệt và báo cho người yêu cầu (kèm lý do nếu có). Chỉ dùng khi người dùng yêu cầu rõ.", inputSchema: { job_id: z.number().int(), reason: z.string().default("") } },
   async ({ job_id, reason }) => { const j = await D.rejectJob(job_id, reason, outboxTransport); return text(`Đã hủy hồ sơ #${j.id} và xếp hàng tin báo cho ${j.requesterName}.`); },
+);
+
+// ================= GOOGLE DRIVE: ẢNH HIỆN TRƯỜNG + NHẬT KÝ =================
+server.registerTool(
+  "drive_status",
+  { description: "Tình trạng tải ảnh/video/tệp hiện trường và chuyển lên Google Drive.", inputSchema: {} },
+  async () => {
+    const s = driveStatus();
+    const c = s.counts as Record<string, number>;
+    return text(
+      `Thư mục Drive: ${s.remote || "CHƯA ĐẶT (bot_config key=drive_remote, ví dụ \"gdrive:Cong trinh/Anh hien truong\")"}\n` +
+      `Tệp: chờ tải ${c.pending ?? 0} | đã tải, chờ lên Drive ${c.downloaded ?? 0} | đã lên Drive ${c.uploaded ?? 0} | lỗi ${c.failed ?? 0}\n` +
+      `Dung lượng tạm trên máy chủ: ${s.localMB} MB\n` +
+      `Lần đồng bộ gần nhất: ${s.lastSync ? `${fmt(s.lastSync)} - ${s.lastResult === "ok" ? `thành công, ${s.lastMoved} tệp` : `LỖI: ${s.lastResult}`}` : "chưa có"}`,
+    );
+  },
+);
+
+server.registerTool(
+  "drive_sync_now",
+  { description: "Yêu cầu bot tải nốt tệp đang chờ và chuyển ngay lên Google Drive (bình thường tự làm mỗi 10 phút).", inputSchema: {} },
+  async () => { setSettingRaw("drive_sync_request", "1"); return text("Đã yêu cầu đồng bộ. Gọi drive_status sau ít phút để xem kết quả."); },
+);
+
+server.registerTool(
+  "media_list",
+  { description: "Liệt kê ảnh/video/tệp hiện trường của một công trình (theo ngày), kèm đường dẫn trong thư mục Drive.", inputSchema: { project: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), limit: z.number().int().min(1).max(200).default(50) } },
+  async ({ project, date, limit }) => {
+    const pr = need(project);
+    const start = date ? Date.parse(`${date}T00:00:00+07:00`) : 0;
+    const end = date ? start + 86_400_000 : 8.64e15;
+    const rows = db.prepare("SELECT kind,sender,caption,rel_path,status,error,ts FROM media WHERE project_id=? AND ts>=? AND ts<? ORDER BY ts DESC LIMIT ?").all(pr.id, start, end, limit) as { kind: string; sender: string; caption: string; rel_path: string; status: string; error: string; ts: number }[];
+    if (!rows.length) return text("Không có tệp nào.");
+    return text(rows.map((r) => `${fmt(r.ts)} | ${r.kind} | ${r.sender} | ${r.status}${r.error && r.status !== "uploaded" ? ` (${r.error})` : ""}\n   ${r.rel_path}${r.caption ? `\n   chú thích: ${r.caption}` : ""}`).join("\n"));
+  },
 );
 
 await server.connect(new StdioServerTransport());

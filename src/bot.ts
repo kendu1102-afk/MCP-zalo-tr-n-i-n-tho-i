@@ -9,6 +9,7 @@ import { engine, engineReady } from "./llm.js";
 import { checkClaudeCode } from "./claudecode.js";
 import { extractPending } from "./extract.js";
 import { tryPairCommand } from "./pairing.js";
+import { attachmentLabel, downloadPending, parseAttachment, queueMedia, syncToDrive } from "./media.js";
 import { friendGate, syncFriends } from "./friends.js";
 import { canRequestDocs, deliverApproved, looksLikeDocRequest, ownerCommand, processQueue, submitRequest, type Transport } from "./docs.js";
 import { autoAssignByName, upsertThread } from "./projects.js";
@@ -166,7 +167,9 @@ async function ensureGroupName(threadId: string) {
 api.listener.on("message", (m) => {
   const text = typeof m.data.content === "string" ? m.data.content : null;
   const type = m.type === ThreadType.User ? "user" : "group";
-  const shown = text ?? PLACEHOLDER;
+  const att = text === null ? parseAttachment(m.data.msgType, m.data.content) : null;
+  // tin của chính bot/Claude gửi file được nhận lại dạng PLACEHOLDER (xem transport.sendFile)
+  const shown = text ?? (att && !m.isSelf ? attachmentLabel(att) : PLACEHOLDER);
 
   if (m.isSelf) {
     if (wasSentByUs(m.threadId, shown)) return; // bản sao của tin chính bot/Claude vừa gửi
@@ -181,6 +184,7 @@ api.listener.on("message", (m) => {
   const name = m.data.dName || m.data.uidFrom;
   if (type === "group") void ensureGroupName(m.threadId); else upsertThread(m.threadId, "user", name);
   logMessage({ ts: Number(m.data.ts) || undefined, threadId: m.threadId, threadType: type, senderId: m.data.uidFrom, senderName: name, direction: "in", text: shown });
+  if (type === "group" && att && queueMedia({ msgId: String(m.data.msgId), threadId: m.threadId, ts: Number(m.data.ts) || Date.now(), sender: name, msgType: m.data.msgType, content: m.data.content })) void runDownloads();
   if (type !== "user" || text === null || !text.trim()) return; // bot chỉ trả lời tin nhắn riêng dạng chữ
 
   const prev = chains.get(m.threadId) ?? Promise.resolve();
@@ -254,5 +258,20 @@ setInterval(() => {
     void runExtraction(true);
   }
 }, 3000);
+// Ảnh/video/tệp hiện trường: tải ngay, chuyển lên Google Drive mỗi 10 phút (hoặc khi Claude Code yêu cầu drive_sync_now)
+let downloading = false;
+async function runDownloads() {
+  if (downloading) return;
+  downloading = true;
+  try { while ((await downloadPending(10)) > 0) { /* tải tiếp */ } }
+  catch (e) { log("lỗi tải tệp:", e); }
+  finally { downloading = false; }
+}
+setInterval(() => void runDownloads(), 10_000);
+setInterval(() => void syncToDrive(), 10 * 60_000);
+setInterval(() => {
+  if (getSettingRaw("drive_sync_request") === "1") { setSettingRaw("drive_sync_request", "0"); void runDownloads().then(() => syncToDrive()); }
+}, 3000);
+
 setHeartbeat();
 log("Bot sẵn sàng. bot_enabled =", getSetting("bot_enabled"), "(heartbeat trước đó:", getHeartbeat(), ")");

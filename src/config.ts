@@ -16,3 +16,7 @@ export const TEMPLATES_DIR = path.join(DATA_DIR, "templates");
 export const DOCS_DIR = path.join(DATA_DIR, "docs");
 fs.mkdirSync(TEMPLATES_DIR, { recursive: true, mode: 0o700 });
 fs.mkdirSync(DOCS_DIR, { recursive: true, mode: 0o700 });
+
+/** Thư mục chờ: ảnh/video/file và nhật ký đã sắp theo "Công trình/Ngày/", được rclone chuyển lên Google Drive rồi xoá. */
+export const DRIVE_OUT_DIR = path.join(DATA_DIR, "drive-out");
+fs.mkdirSync(DRIVE_OUT_DIR, { recursive: true, mode: 0o700 });

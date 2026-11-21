@@ -79,6 +79,24 @@ CREATE TABLE IF NOT EXISTS doc_jobs (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON doc_jobs(status);
+-- Ảnh/video/file từ nhóm hiện trường -> tải về -> chuyển lên Google Drive
+CREATE TABLE IF NOT EXISTS media (
+  id INTEGER PRIMARY KEY,
+  msg_id TEXT NOT NULL UNIQUE,
+  thread_id TEXT NOT NULL,
+  project_id INTEGER,
+  ts INTEGER NOT NULL,
+  sender TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL,                    -- photo | video | file
+  caption TEXT NOT NULL DEFAULT '',
+  url TEXT NOT NULL,
+  rel_path TEXT NOT NULL,                -- đường dẫn tương đối: Công trình/Ngày/tên file
+  size INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending',-- pending | downloaded | uploaded | failed
+  attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_media_status ON media(status);
 CREATE TABLE IF NOT EXISTS friends (uid TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
@@ -151,6 +169,10 @@ export const DEFAULT_SETTINGS = {
   engine: "claude-code",           // claude-code = dùng Claude Code đăng nhập bằng tài khoản Claude của bạn | api = dùng ANTHROPIC_API_KEY
   cc_model: "",                    // để trống = mô hình mặc định của tài khoản
   cc_timeout_sec: "300",
+  drive_remote: "",                // ví dụ "gdrive:Cong trinh/Anh hien truong" (remote rclone + thư mục). Trống = chỉ lưu trên máy chủ
+  media_scope: "mapped",           // mapped = chỉ nhóm đã ghép công trình | all_groups = mọi nhóm nick bot tham gia
+  media_kinds: "photo,video,file", // loại tệp cần tải
+  drive_text_logs: "true",         // ghi nhật ký chữ mỗi ngày (tin nhắn + bảng khối lượng) lên Drive
   persona: "Bạn là trợ lý của một kỹ sư quản lý dự án cầu đường và bảo dưỡng thường xuyên đường bộ.",
 } as const;
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

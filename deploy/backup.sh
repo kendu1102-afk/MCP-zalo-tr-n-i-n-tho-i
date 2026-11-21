@@ -25,7 +25,16 @@ tar -czf "$OUT/zalo-$STAMP.tar.gz" -C "$TMP" "${ITEMS[@]}"
 chmod 600 "$OUT/zalo-$STAMP.tar.gz"
 
 ls -1t "$OUT"/zalo-*.tar.gz | tail -n +15 | xargs -r rm -f
-if [ -n "${BACKUP_REMOTE:-}" ] && command -v rclone >/dev/null; then
-  rclone copy "$OUT/zalo-$STAMP.tar.gz" "$BACKUP_REMOTE"
+# Mặc định đẩy bản sao lưu lên "<thư mục Drive của bot>/_Sao luu" nếu đã đặt drive_remote
+if [ -z "${BACKUP_REMOTE:-}" ]; then
+  DR="$(node -e 'try{const {DatabaseSync}=require("node:sqlite");const r=new DatabaseSync(process.argv[1]).prepare("select value from settings where key=\x27drive_remote\x27").get();process.stdout.write(r?r.value:"")}catch{}' "$DATA/zalo.db" 2>/dev/null || true)"
+  [ -n "$DR" ] && BACKUP_REMOTE="$DR/_Sao luu"
+fi
+if [ -n "${BACKUP_REMOTE:-}" ] && command -v "${RCLONE_BIN:-rclone}" >/dev/null; then
+  # Bản đẩy lên Drive KHÔNG kèm session.json (phiên Zalo = quyền đăng nhập nick bot)
+  REMOTE_ITEMS=()
+  for i in "${ITEMS[@]}"; do [ "$i" != "session.json" ] && REMOTE_ITEMS+=("$i"); done
+  tar -czf "$TMP/zalo-$STAMP.tar.gz" -C "$TMP" "${REMOTE_ITEMS[@]}"
+  "${RCLONE_BIN:-rclone}" copy "$TMP/zalo-$STAMP.tar.gz" "$BACKUP_REMOTE" && echo "Đã đẩy lên $BACKUP_REMOTE (không kèm phiên Zalo)"
 fi
 echo "Đã sao lưu: $OUT/zalo-$STAMP.tar.gz"

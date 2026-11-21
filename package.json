@@ -10,7 +10,7 @@
     "bot": "tsx src/bot.ts",
     "mcp": "tsx src/mcp.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts",
+    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts && tsx src/media.test.mts",
     "sample-template": "tsx src/sample-template.ts",
     "test:live": "tsx src/live.test.mts",
     "backup": "bash deploy/backup.sh"
