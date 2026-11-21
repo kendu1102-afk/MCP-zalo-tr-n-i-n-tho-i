@@ -23,8 +23,10 @@ Bot Zalo chỉ là **cầu nối**. Mọi việc đọc tin để tổng hợp s
 npm install
 claude                 # chạy một lần, đăng nhập tài khoản Claude của bạn, rồi thoát
 npm run login          # mở data/qr.png, quét bằng Zalo của NICK BOT và xác nhận
-npm run bot            # giữ chạy (systemd/pm2), xem DEPLOY.md để chạy 24/24 trên đám mây
+npm run bot            # giữ chạy (systemd/pm2)
 ```
+
+**Chạy 24/24 miễn phí trên đám mây** (bot vẫn trả lời khi máy tính và điện thoại tắt): xem [DEPLOY.md](DEPLOY.md).
 
 Claude Code đọc `.mcp.json` trong thư mục này (chạy `claude` tại đây và chấp nhận server `zalo`).
 

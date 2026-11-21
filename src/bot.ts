@@ -22,7 +22,20 @@ if (engine() === "claude-code") {
   catch { log('CẢNH BÁO: không chạy được lệnh "claude". Cài Claude Code rồi chạy `claude` một lần để đăng nhập tài khoản Claude của bạn. Hoặc đặt engine=api và ANTHROPIC_API_KEY.'); }
 } else if (!process.env.ANTHROPIC_API_KEY) log("CẢNH BÁO: engine=api nhưng chưa có ANTHROPIC_API_KEY.");
 
-const api = await loginWithSession();
+// Khi chạy dưới systemd (tự khởi động lại), không được đăng nhập dồn dập: chờ trước khi thoát
+const waitThenExit = (minutes: number, code: number): Promise<never> =>
+  new Promise(() => { setSettingRaw("bot_problem", `${new Date().toISOString()} ${code === 3 ? "phiên Zalo không dùng được, cần `npm run login` lại" : "bị Zalo Web/PC ở nơi khác ngắt kết nối"}`); setTimeout(() => process.exit(code), minutes * 60_000); });
+
+let api: Awaited<ReturnType<typeof loginWithSession>>;
+try {
+  api = await loginWithSession();
+  setSettingRaw("bot_problem", "");
+} catch (e) {
+  log("ĐĂNG NHẬP ZALO THẤT BẠI:", e instanceof Error ? e.message : e);
+  log("Phiên có thể đã hết hạn: chạy `npm run login` và quét QR lại. Bot chờ 30 phút rồi mới thử lại để tránh bị Zalo khoá.");
+  await waitThenExit(30, 3);
+  throw e;
+}
 const myUid = api.getContext().uid;
 log("Đã đăng nhập Zalo, uid =", myUid);
 
@@ -183,8 +196,8 @@ api.listener.on("error", (e) => log("Listener lỗi:", e));
 api.listener.on("closed", (code, reason) => {
   log("Listener đóng:", code, reason);
   if (code === 3000 || code === 3003) {
-    log("Zalo đang được mở ở nơi khác (Zalo Web/PC) nên đã ngắt listener. Thoát để bạn chủ động chạy lại.");
-    process.exit(2);
+    log("Nick bot đang được mở ở Zalo Web/PC nơi khác nên bị ngắt. Đừng mở nick bot trên Zalo Web/PC (điện thoại thì được). Thử lại sau 10 phút.");
+    void waitThenExit(10, 2);
   }
 });
 api.listener.start({ retryOnClose: true });

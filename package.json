@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts",
     "sample-template": "tsx src/sample-template.ts",
-    "test:live": "tsx src/live.test.mts"
+    "test:live": "tsx src/live.test.mts",
+    "backup": "bash deploy/backup.sh"
   },
   "engines": {
     "node": ">=22.13"

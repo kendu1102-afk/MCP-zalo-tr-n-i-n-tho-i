@@ -1,0 +1,21 @@
+[Unit]
+Description=Bot Zalo - cau noi toi Claude Code
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+Environment=HOME=__HOME__
+Environment=PATH=__PATH__
+Environment=CLAUDE_BIN=__CLAUDE__
+Environment=TZ=Asia/Ho_Chi_Minh
+ExecStart=__NODE__ __DIR__/node_modules/tsx/dist/cli.mjs src/bot.ts
+# Bot tự chờ 10-30 phút trước khi thoát khi gặp sự cố đăng nhập, nên tự khởi động lại không gây đăng nhập dồn dập
+Restart=always
+RestartSec=30
+MemoryMax=80%
+
+[Install]
+WantedBy=multi-user.target

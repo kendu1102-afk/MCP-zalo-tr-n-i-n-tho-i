@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { db, allSettings, DEFAULT_SETTINGS, getHeartbeat, getJsonList, getSetting, setSetting, setSettingRaw, type SettingKey } from "./db.js";
+import { db, allSettings, DEFAULT_SETTINGS, getHeartbeat, getJsonList, getSetting, getSettingRaw, setSetting, setSettingRaw, type SettingKey } from "./db.js";
 import crypto from "node:crypto";
 import { friendsCount, friendsSyncedAt } from "./friends.js";
 import * as P from "./projects.js";
@@ -108,7 +108,8 @@ server.registerTool(
     return text(
       `Bot: ${alive ? "ĐANG CHẠY" : "KHÔNG chạy (hãy chạy `npm run bot`)"}${hb ? ` (heartbeat ${fmt(hb)})` : ""}\n` +
         `Tự trả lời: ${s.bot_enabled === "true" ? "BẬT" : "TẮT"} | phạm vi: ${s.reply_scope} | chỉ bạn bè: ${s.friends_only === "true" ? "BẬT" : "TẮT"} (${friendsCount()} bạn bè, đồng bộ lần cuối ${friendsSyncedAt() ? fmt(friendsSyncedAt()!) : "CHƯA LẦN NÀO"})\n` +
-        `Tin chờ gửi: ${pending} | Câu hỏi chưa trả lời được: ${un}`,
+        `Tin chờ gửi: ${pending} | Câu hỏi chưa trả lời được: ${un}` +
+        (getSettingRaw("bot_problem") ? `\n⚠ SỰ CỐ: ${getSettingRaw("bot_problem")}` : ""),
     );
   },
 );
