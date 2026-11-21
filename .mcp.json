@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "zalo": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp.ts"]
+    }
+  }
+}

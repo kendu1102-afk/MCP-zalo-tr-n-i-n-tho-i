@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "zca-js": [
+        "./node_modules/zca-js/dist/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}

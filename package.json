@@ -1,0 +1,30 @@
+{
+  "name": "mcp-zalo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server + bot tự trả lời cho Zalo cá nhân, dựa trên kiến thức đã nạp",
+  "scripts": {
+    "build": "tsc",
+    "login": "tsx src/cli-login.ts",
+    "bot": "tsx src/bot.ts",
+    "mcp": "tsx src/mcp.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "mammoth": "^1.13.0",
+    "unpdf": "^1.9.1",
+    "zca-js": "^2.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
