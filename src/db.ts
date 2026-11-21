@@ -56,6 +56,29 @@ CREATE TABLE IF NOT EXISTS unanswered (
   resolved INTEGER NOT NULL DEFAULT 0
 );
 
+-- Người (đã là bạn bè) được phép nhờ bot làm hồ sơ; chỉ trong phạm vi công trình được cấp
+CREATE TABLE IF NOT EXISTS requesters (
+  uid TEXT PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT '',
+  projects TEXT NOT NULL DEFAULT '[]',   -- JSON: tên công trình, hoặc ["*"] = tất cả
+  kb_private INTEGER NOT NULL DEFAULT 0, -- 1 = bot được dùng cả tài liệu riêng tư khi soạn cho người này
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS doc_jobs (
+  id INTEGER PRIMARY KEY,
+  requester_uid TEXT NOT NULL,
+  requester_name TEXT NOT NULL DEFAULT '',
+  request_text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',
+    -- queued | working | awaiting_approval | approved | sent | rejected | needs_info | failed
+  template_id TEXT NOT NULL DEFAULT '',
+  file_path TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',      -- tóm tắt gửi kèm: nguồn số liệu, mục thiếu
+  error TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON doc_jobs(status);
 CREATE TABLE IF NOT EXISTS friends (uid TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
@@ -122,6 +145,8 @@ export const DEFAULT_SETTINGS = {
   human_takeover_minutes: "30",    // bạn tự nhắn tay -> bot tạm dừng ở hội thoại đó
   owner_ids: "[]",                 // JSON: uid Zalo của bạn (nick chính) -> được hỏi tiến độ/khối lượng
   pair_code: "",                   // mã ghép nối tạm thời "code:hạn" (xem zalo_new_pair_code)
+  doc_delivery: "approve",         // approve = soạn xong gửi CHỦ duyệt rồi mới gửi người yêu cầu | auto = gửi thẳng
+  doc_max_per_day: "5",            // số yêu cầu làm hồ sơ tối đa mỗi người mỗi ngày
   persona: "Bạn là trợ lý của một kỹ sư quản lý dự án cầu đường và bảo dưỡng thường xuyên đường bộ.",
 } as const;
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

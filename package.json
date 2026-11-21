@@ -10,7 +10,8 @@
     "bot": "tsx src/bot.ts",
     "mcp": "tsx src/mcp.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/pipeline.test.mts"
+    "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts",
+    "sample-template": "tsx src/sample-template.ts"
   },
   "engines": {
     "node": ">=22.13"
@@ -18,7 +19,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "docx": "^9.16.0",
+    "docxtemplater": "^3.71.1",
     "mammoth": "^1.13.0",
+    "pizzip": "^3.3.0",
     "unpdf": "^1.9.1",
     "zca-js": "^2.3.0",
     "zod": "^4.6.7"

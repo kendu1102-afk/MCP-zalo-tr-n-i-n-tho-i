@@ -75,13 +75,40 @@ Bạn nhắn "Cầu ABC đến đâu rồi?" ──► bot trả lời từ số
 - **Ảnh/tệp đính kèm chưa được đọc** (ảnh hiện trường, bảng khối lượng chụp lại, file Excel/PDF gửi trong nhóm sẽ bị bỏ qua).
 - Báo cáo chỉ được ghi từ lúc bot đang chạy và nick đã ở trong nhóm.
 
+## Làm hồ sơ theo mẫu công ty (báo cáo, tờ trình...)
+
+Người bạn chọn từ danh sách bạn bè nhắn cho nick bot, ví dụ *"Làm báo cáo tuần Cầu ABC từ 16/11 đến 22/11"*. Bot sẽ:
+
+1. Xác nhận đã nhận (mã #id).
+2. Cho Claude tự tra cứu: khối lượng đã cộng dồn trong kỳ, chi tiết báo cáo hiện trường, bộ nhớ tài liệu. **Chỉ trong các công trình người đó được cấp**; giới hạn này do code ép buộc, không phụ thuộc lời dặn mô hình.
+3. Điền vào **mẫu .docx của công ty** rồi xuất file. Chỗ không có dữ liệu ghi rõ `[CHƯA CÓ DỮ LIỆU]`, không bịa.
+4. **Mặc định gửi file cho bạn duyệt trước.** Bạn nhắn `duyệt 12` thì bot gửi cho người yêu cầu, nhắn `hủy 12 <lý do>` thì bot báo lại lý do. Muốn gửi thẳng không qua duyệt: `doc_delivery = auto` (bạn vẫn được báo mỗi lần gửi).
+5. Thiếu thông tin bắt buộc (công trình, kỳ, loại hồ sơ, chưa có mẫu phù hợp) thì bot hỏi lại người yêu cầu thay vì đoán.
+
+Bạn (tài khoản chủ) cũng nhắn yêu cầu được; khi đó bot gửi file cho bạn ngay, không qua bước duyệt.
+
+**Thiết lập** (nói với Claude Code):
+
+- Chọn người: `friend_list` (tìm theo tên) → `requester_add` với danh sách công trình được phép (hoặc `["*"]`). Người đó **phải là bạn bè** của nick bot. Mặc định bot chỉ dùng tài liệu công khai khi soạn cho người này; `kb_private=true` để cho dùng cả tài liệu riêng tư.
+- Nạp mẫu: mở mẫu thật của công ty trong Word, thay các chỗ cần điền bằng thẻ `{ten_truong}` (chữ không dấu, ví dụ `{so_van_ban}`, `{kinh_gui}`, `{noi_dung}`). Với bảng khối lượng, đặt `{#hang_muc}` ở ô đầu và `{/hang_muc}` ở ô cuối của **một dòng**, các cột ở giữa (`{ten}`, `{don_vi_tinh}`, `{khoi_luong}`). Sau đó gọi `template_import` kèm mô tả từng thẻ. `template_create_sample` tạo một mẫu thử để bạn xem cách đặt thẻ.
+- Giới hạn: mỗi người tối đa `doc_max_per_day` (mặc định 5) yêu cầu trong 24 giờ.
+
+**Giới hạn cần biết:**
+
+- **Bot không đăng nhập bằng tài khoản Claude của bạn** (gói Pro/Max trên claude.ai). Bot gọi Claude qua **API key** (`ANTHROPIC_API_KEY`), tính phí theo lượng dùng, tách riêng với gói claude.ai. Bot cũng **không đọc được tài liệu trong các Project trên claude.ai**: dữ liệu bot dùng là bộ nhớ trong `data/zalo.db`. Hãy nạp các tài liệu dự án vào đó bằng `kb_add_file` (docx, pdf, txt...).
+- Chỉ xuất **.docx**, chưa xuất PDF (cần LibreOffice trên máy chạy bot).
+- Hồ sơ là **dự thảo**: số liệu lấy từ báo cáo hiện trường chưa nghiệm thu, và câu chữ do mô hình viết. Phải soát trước khi ký hoặc gửi chủ đầu tư; đừng dùng thẳng cho thanh toán, quyết toán.
+- Việc nhận ra một tin là "yêu cầu làm hồ sơ" dựa trên từ khoá (có động từ như làm/soạn/lập + loại văn bản như báo cáo/tờ trình/hồ sơ). Nhận nhầm thì người gửi thấy ngay tin xác nhận, và mỗi lần nhầm tốn một lượt trong giới hạn ngày.
+- Gửi file qua Zalo dùng `zca-js` (không chính thức), chưa được thử trên Zalo thật.
+
 ## Công cụ MCP
 
 - Kiến thức: `kb_add_text`, `kb_add_file`, `kb_search`, `kb_list`, `kb_delete`, `kb_set_visibility`
 - Zalo: `zalo_status`, `zalo_list_conversations`, `zalo_read_messages`, `zalo_send_message`, `zalo_unanswered`, `zalo_new_pair_code`, `bot_config`
 - Công trình/nhóm: `project_create`, `project_update`, `project_delete`, `project_list`, `group_list`, `group_assign`, `group_unassign`, `extract_now`
+- Hồ sơ theo mẫu: `friend_list`, `requester_add`, `requester_list`, `requester_remove`, `template_list`, `template_import`, `template_create_sample`, `doc_jobs`, `doc_approve`, `doc_reject`
 - Báo cáo khối lượng: `report_summary`, `report_list`, `report_add`, `report_update`, `report_delete`, `report_merge_items`, `report_set_target`
 
 ## Kiểm thử
 
-`npm test` chạy bài kiểm thử đầu-cuối với LLM giả lập (ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối). Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.
+`npm test` chạy hai bài kiểm thử đầu-cuối với LLM giả lập: (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.

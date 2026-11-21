@@ -141,13 +141,14 @@ export type ItemTotal = {
   lastCumulative: number | null; lastCumulativeDate: string | null; target: number | null; percent: number | null; lowConfidence: number;
 };
 /** Cộng dồn khối lượng theo hạng mục (do code tính bằng SQL, không để LLM tự cộng). */
-export function aggregate(projectId: number, opts: { toDate?: string } = {}): ItemTotal[] {
+export function aggregate(projectId: number, opts: { fromDate?: string; toDate?: string } = {}): ItemTotal[] {
   const to = opts.toDate ?? "9999-99-99";
+  const from = opts.fromDate ?? "0000-00-00";
   const rows = db.prepare(
     `SELECT item, unit, COALESCE(SUM(quantity),0) AS total, COUNT(*) AS reports, MIN(report_date) AS firstDate, MAX(report_date) AS lastDate,
             SUM(CASE WHEN confidence='low' THEN 1 ELSE 0 END) AS lowConfidence
-     FROM work_reports WHERE project_id=? AND report_date<=? GROUP BY item, unit ORDER BY item`,
-  ).all(projectId, to) as { item: string; unit: string; total: number; reports: number; firstDate: string; lastDate: string; lowConfidence: number }[];
+     FROM work_reports WHERE project_id=? AND report_date<=? AND report_date>=? GROUP BY item, unit ORDER BY item`,
+  ).all(projectId, to, from) as { item: string; unit: string; total: number; reports: number; firstDate: string; lastDate: string; lowConfidence: number }[];
   const cum = db.prepare("SELECT cumulative, report_date FROM work_reports WHERE project_id=? AND item=? AND unit=? AND cumulative IS NOT NULL AND report_date<=? ORDER BY report_date DESC, id DESC LIMIT 1");
   const tgt = db.prepare("SELECT target FROM work_targets WHERE project_id=? AND item=? AND unit=?");
   return rows.map((r) => {

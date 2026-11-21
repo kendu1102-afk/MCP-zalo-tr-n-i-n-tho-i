@@ -8,6 +8,7 @@ import { answerForOwner, answerFromKnowledge } from "./answer.js";
 import { extractPending } from "./extract.js";
 import { tryPairCommand } from "./pairing.js";
 import { friendGate, syncFriends } from "./friends.js";
+import { canRequestDocs, deliverApproved, looksLikeDocRequest, ownerCommand, processQueue, submitRequest, type Transport } from "./docs.js";
 import { autoAssignByName, upsertThread } from "./projects.js";
 import { loginWithSession } from "./zalo.js";
 
@@ -43,6 +44,17 @@ async function sendText(threadId: string, threadType: "user" | "group", text: st
 
 const isOwner = (uid: string) => getJsonList("owner_ids").includes(uid);
 
+const PLACEHOLDER = "[tệp/ảnh/nội dung đặc biệt]";
+const transport: Transport = {
+  sendText: (uid, text) => sendText(uid, "user", text, "out_bot"),
+  async sendFile(uid, filePath, caption) {
+    markSent(uid, caption);
+    markSent(uid, PLACEHOLDER); // bản sao tin file nhận lại qua selfListen không bị tính là bạn nhắn tay
+    await api.sendMessage({ msg: caption, attachments: [filePath] }, uid, ThreadType.User);
+    logMessage({ threadId: uid, threadType: "user", senderId: myUid, direction: "out_bot", text: `${caption}\n[kèm file ${filePath.split(/[\\/]/).pop()}]` });
+  },
+};
+
 function canBotReply(threadId: string, owner = false): string | null {
   if (getSetting("bot_enabled") !== "true") return "bot đang tắt";
   if (getJsonList("blocklist").includes(threadId)) return "nằm trong blocklist";
@@ -67,6 +79,27 @@ async function tryPair(threadId: string, uid: string, text: string): Promise<boo
   }
   return true;
 }
+
+// ---- hồ sơ: lệnh duyệt của chủ, và yêu cầu làm hồ sơ từ người được cấp quyền ----
+let docWorker = false;
+async function runDocWorker() {
+  if (docWorker || !process.env.ANTHROPIC_API_KEY) return;
+  docWorker = true;
+  try { await processQueue(transport); await deliverApproved(transport); }
+  catch (e) { log("lỗi hàng đợi hồ sơ:", e); }
+  finally { docWorker = false; }
+}
+async function handleDocFlow(uid: string, name: string, text: string): Promise<boolean> {
+  const owner = isOwner(uid);
+  if (owner && await ownerCommand(text, transport, (t) => sendText(uid, "user", t, "out_bot"))) return true;
+  if (!canRequestDocs(uid) || !looksLikeDocRequest(text)) return false;
+  const why = canBotReply(uid, owner);
+  if (why) { log(`bỏ qua yêu cầu hồ sơ [${uid}] vì ${why}`); return true; }
+  const job = await submitRequest(uid, name, text, transport);
+  if (job) { log(`nhận yêu cầu hồ sơ #${job.id} từ ${name}`); void runDocWorker(); }
+  return true;
+}
+setInterval(() => void runDocWorker(), 5000); // cũng gửi các hồ sơ được duyệt từ Claude Code (doc_approve)
 
 async function handleIncomingDm(threadId: string, name: string, text: string) {
   const owner = isOwner(threadId); // với DM, threadId chính là uid người gửi
@@ -115,7 +148,7 @@ async function ensureGroupName(threadId: string) {
 api.listener.on("message", (m) => {
   const text = typeof m.data.content === "string" ? m.data.content : null;
   const type = m.type === ThreadType.User ? "user" : "group";
-  const shown = text ?? "[tệp/ảnh/nội dung đặc biệt]";
+  const shown = text ?? PLACEHOLDER;
 
   if (m.isSelf) {
     if (wasSentByUs(m.threadId, shown)) return; // bản sao của tin chính bot/Claude vừa gửi
@@ -135,6 +168,7 @@ api.listener.on("message", (m) => {
   const prev = chains.get(m.threadId) ?? Promise.resolve();
   chains.set(m.threadId, prev.then(async () => {
     if (await tryPair(m.threadId, m.threadId, text)) return;
+    if (await handleDocFlow(m.threadId, name, text)) return;
     await handleIncomingDm(m.threadId, name, text);
   }).catch((e) => log("lỗi xử lý:", e)));
 });

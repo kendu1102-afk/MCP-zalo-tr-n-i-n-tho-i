@@ -10,3 +10,9 @@ export const SESSION_PATH = path.join(DATA_DIR, "session.json");
 export const QR_PATH = path.join(DATA_DIR, "qr.png");
 
 export const BOT_MODEL = process.env.ZALO_BOT_MODEL ?? "claude-sonnet-5-5";
+
+/** Mẫu văn bản của công ty (.docx có thẻ {tên_trường}) và hồ sơ đã xuất. Nằm ngoài git vì là tài liệu nội bộ. */
+export const TEMPLATES_DIR = path.join(DATA_DIR, "templates");
+export const DOCS_DIR = path.join(DATA_DIR, "docs");
+fs.mkdirSync(TEMPLATES_DIR, { recursive: true, mode: 0o700 });
+fs.mkdirSync(DOCS_DIR, { recursive: true, mode: 0o700 });
