@@ -9,7 +9,8 @@
     "login": "tsx src/cli-login.ts",
     "bot": "tsx src/bot.ts",
     "mcp": "tsx src/mcp.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx src/pipeline.test.mts"
   },
   "engines": {
     "node": ">=22.13"

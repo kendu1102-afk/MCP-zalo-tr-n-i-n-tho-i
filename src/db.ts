@@ -57,7 +57,54 @@ CREATE TABLE IF NOT EXISTS unanswered (
 );
 
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+-- Công trình / nhóm hiện trường / báo cáo khối lượng
+CREATE TABLE IF NOT EXISTS projects (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  aliases TEXT NOT NULL DEFAULT '[]',   -- JSON: tên gọi khác, tên viết tắt, mã tuyến
+  description TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS threads (
+  thread_id TEXT PRIMARY KEY,
+  thread_type TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS thread_project (
+  thread_id TEXT NOT NULL,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (thread_id, project_id)
+);
+CREATE TABLE IF NOT EXISTS work_reports (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  report_date TEXT NOT NULL,            -- YYYY-MM-DD (giờ Việt Nam)
+  item TEXT NOT NULL,                   -- hạng mục / công việc
+  unit TEXT NOT NULL DEFAULT '',
+  quantity REAL,                        -- khối lượng làm TRONG NGÀY (null nếu không nêu)
+  cumulative REAL,                      -- lũy kế do hiện trường tự nêu (nếu có)
+  location TEXT NOT NULL DEFAULT '',    -- lý trình / vị trí
+  note TEXT NOT NULL DEFAULT '',
+  reporter TEXT NOT NULL DEFAULT '',
+  thread_id TEXT NOT NULL DEFAULT '',
+  source_msg_id INTEGER,
+  confidence TEXT NOT NULL DEFAULT 'high',  -- high | low
+  manual INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reports_project ON work_reports(project_id, report_date);
+CREATE TABLE IF NOT EXISTS work_targets (
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  item TEXT NOT NULL,
+  unit TEXT NOT NULL DEFAULT '',
+  target REAL NOT NULL,
+  PRIMARY KEY (project_id, item, unit)
+);
 `);
+// extracted: 0 = chờ xử lý, 1 = đã trích xuất, 2 = bỏ qua (không phải báo cáo)
+try { db.exec("ALTER TABLE messages ADD COLUMN extracted INTEGER NOT NULL DEFAULT 0"); } catch { /* đã có */ }
 db.exec("PRAGMA foreign_keys = ON;");
 
 // ---------- settings ----------
@@ -71,6 +118,8 @@ export const DEFAULT_SETTINGS = {
   fallback_reply: "",              // rỗng = im lặng khi không biết (chỉ ghi vào 'unanswered')
   max_replies_per_hour: "10",      // mỗi hội thoại
   human_takeover_minutes: "30",    // bạn tự nhắn tay -> bot tạm dừng ở hội thoại đó
+  owner_ids: "[]",                 // JSON: uid Zalo của bạn (nick chính) -> được hỏi tiến độ/khối lượng
+  pair_code: "",                   // mã ghép nối tạm thời "code:hạn" (xem zalo_new_pair_code)
   persona: "Bạn là trợ lý của một kỹ sư quản lý dự án cầu đường và bảo dưỡng thường xuyên đường bộ.",
 } as const;
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;
@@ -89,6 +138,14 @@ export function allSettings(): Record<SettingKey, string> {
 }
 export function getJsonList(key: SettingKey): string[] {
   try { const v = JSON.parse(getSetting(key)); return Array.isArray(v) ? v.map(String) : []; } catch { return []; }
+}
+
+export function getSettingRaw(key: string): string {
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value ?? "";
+}
+export function setSettingRaw(key: string, value: string): void {
+  db.prepare("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(key, value);
 }
 
 // heartbeat do bot ghi, MCP đọc

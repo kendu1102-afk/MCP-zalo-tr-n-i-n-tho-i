@@ -3,8 +3,11 @@
  * ghi log tin nhắn, tự trả lời tin nhắn riêng từ kiến thức đã nạp, và gửi tin trong hàng đợi (outbox) do MCP đặt.
  */
 import { ThreadType } from "zca-js";
-import { db, getJsonList, getSetting, getHeartbeat, logMessage, setHeartbeat } from "./db.js";
-import { answerFromKnowledge } from "./answer.js";
+import { db, getJsonList, getSetting, getSettingRaw, getHeartbeat, logMessage, setHeartbeat, setSettingRaw } from "./db.js";
+import { answerForOwner, answerFromKnowledge } from "./answer.js";
+import { extractPending } from "./extract.js";
+import { tryPairCommand } from "./pairing.js";
+import { autoAssignByName, upsertThread } from "./projects.js";
 import { loginWithSession } from "./zalo.js";
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), ...a);
@@ -37,25 +40,41 @@ async function sendText(threadId: string, threadType: "user" | "group", text: st
   logMessage({ threadId, threadType, senderId: myUid, direction, text });
 }
 
-function canBotReply(threadId: string): string | null {
+const isOwner = (uid: string) => getJsonList("owner_ids").includes(uid);
+
+function canBotReply(threadId: string, owner = false): string | null {
   if (getSetting("bot_enabled") !== "true") return "bot đang tắt";
   if (getJsonList("blocklist").includes(threadId)) return "nằm trong blocklist";
-  if (getSetting("reply_scope") === "allowlist" && !getJsonList("allowlist").includes(threadId)) return "không thuộc allowlist";
+  if (!owner && getSetting("reply_scope") === "allowlist" && !getJsonList("allowlist").includes(threadId)) return "không thuộc allowlist";
   if ((takeoverUntil.get(threadId) ?? 0) > Date.now()) return "bạn đang tự trả lời (tạm dừng)";
-  const max = Number(getSetting("max_replies_per_hour"));
+  const max = owner ? 60 : Number(getSetting("max_replies_per_hour"));
   const n = (db.prepare("SELECT COUNT(*) AS n FROM messages WHERE thread_id=? AND direction='out_bot' AND ts>?").get(threadId, Date.now() - 3_600_000) as { n: number }).n;
   if (n >= max) return `vượt giới hạn ${max} tin/giờ`;
   return null;
 }
 
+// ---- ghép nối tài khoản chủ: nhắn "/ketnoi 123456" từ nick chính của bạn ----
+async function tryPair(threadId: string, uid: string, text: string): Promise<boolean> {
+  const r = tryPairCommand(uid, text);
+  if (r === "ignored") return false;
+  if (r === "ok") {
+    log(`đã ghép nối tài khoản chủ: ${uid}`);
+    await sendText(threadId, "user", "✅ Đã kết nối. Từ giờ bạn có thể hỏi mình về tiến độ, khối lượng các công trình, ví dụ: \"khối lượng công trình X đến đâu rồi?\"", "out_bot");
+  } else {
+    log(`ghép nối thất bại từ ${uid}`);
+  }
+  return true;
+}
+
 async function handleIncomingDm(threadId: string, name: string, text: string) {
-  const why = canBotReply(threadId);
+  const owner = isOwner(threadId); // với DM, threadId chính là uid người gửi
+  const why = canBotReply(threadId, owner);
   if (why) return log(`bỏ qua tự trả lời [${threadId}] vì ${why}`);
   await sleep(2000 + Math.random() * 3000); // trễ tự nhiên, giảm nguy cơ bị Zalo đánh dấu
-  if (canBotReply(threadId)) return; // trạng thái có thể đổi trong lúc chờ (ví dụ bạn vừa nhắn tay)
+  if (canBotReply(threadId, owner)) return; // trạng thái có thể đổi trong lúc chờ (ví dụ bạn vừa nhắn tay)
   let reply: string | null;
   try {
-    reply = await answerFromKnowledge(threadId, text);
+    reply = owner ? await answerForOwner(threadId, text) : await answerFromKnowledge(threadId, text);
   } catch (e) {
     return log("Lỗi khi gọi Claude:", e instanceof Error ? e.message : e);
   }
@@ -69,6 +88,26 @@ async function handleIncomingDm(threadId: string, name: string, text: string) {
   const prefix = getSetting("disclose_bot") === "true" ? getSetting("disclose_prefix") : "";
   await sendText(threadId, "user", prefix + reply, "out_bot");
   log(`đã trả lời [${threadId}]`);
+}
+
+// Tên nhóm: lấy một lần cho mỗi nhóm; nếu tên chứa đúng một công trình đã khai báo thì tự ghép
+const groupNameTried = new Set<string>();
+async function ensureGroupName(threadId: string) {
+  upsertThread(threadId, "group");
+  if (groupNameTried.has(threadId)) return;
+  groupNameTried.add(threadId);
+  try {
+    const info = await api.getGroupInfo(threadId);
+    const name = info.gridInfoMap?.[threadId]?.name ?? "";
+    if (name) {
+      upsertThread(threadId, "group", name);
+      const p = autoAssignByName(threadId, name);
+      log(`nhóm "${name}" (${threadId})${p ? ` -> tự ghép công trình "${p.name}"` : " (chưa ghép công trình)"}`);
+    }
+  } catch (e) {
+    groupNameTried.delete(threadId); // thử lại lần sau
+    log("không lấy được tên nhóm:", e instanceof Error ? e.message : e);
+  }
 }
 
 api.listener.on("message", (m) => {
@@ -87,11 +126,15 @@ api.listener.on("message", (m) => {
   }
 
   const name = m.data.dName || m.data.uidFrom;
+  if (type === "group") void ensureGroupName(m.threadId); else upsertThread(m.threadId, "user", name);
   logMessage({ ts: Number(m.data.ts) || undefined, threadId: m.threadId, threadType: type, senderId: m.data.uidFrom, senderName: name, direction: "in", text: shown });
   if (type !== "user" || text === null || !text.trim()) return; // bot chỉ trả lời tin nhắn riêng dạng chữ
 
   const prev = chains.get(m.threadId) ?? Promise.resolve();
-  chains.set(m.threadId, prev.then(() => handleIncomingDm(m.threadId, name, text)).catch((e) => log("lỗi xử lý:", e)));
+  chains.set(m.threadId, prev.then(async () => {
+    if (await tryPair(m.threadId, m.threadId, text)) return;
+    await handleIncomingDm(m.threadId, name, text);
+  }).catch((e) => log("lỗi xử lý:", e)));
 });
 
 api.listener.on("connected", () => log("Listener đã kết nối."));
@@ -120,6 +163,27 @@ setInterval(async () => {
       log(`gửi outbox #${r.id} thất bại:`, e);
     }
     await sleep(1500);
+  }
+}, 3000);
+// Trích xuất báo cáo từ các nhóm hiện trường (mỗi 60 giây; hoặc ngay khi Claude Code yêu cầu extract_now)
+let extracting = false;
+async function runExtraction(force: boolean) {
+  if (extracting) return;
+  extracting = true;
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) return;
+    await extractPending({ force });
+  } catch (e) {
+    log("lỗi trích xuất:", e);
+  } finally {
+    extracting = false;
+  }
+}
+setInterval(() => void runExtraction(false), 60_000);
+setInterval(() => {
+  if (getSettingRaw("extract_request") === "1") {
+    setSettingRaw("extract_request", "0");
+    void runExtraction(true);
   }
 }, 3000);
 setHeartbeat();

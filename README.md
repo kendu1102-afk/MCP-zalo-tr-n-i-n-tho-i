@@ -32,6 +32,7 @@ Claude Code đọc `.mcp.json` trong thư mục này (chạy `claude` tại đâ
 |---|---|
 | Bot tắt cho đến khi bạn bật | `bot_enabled=false` |
 | Chỉ trả lời DM dạng chữ, không bao giờ trả lời nhóm | cố định |
+| Số liệu công trình chỉ cho tài khoản đã ghép nối (`/ketnoi`) | `owner_ids` rỗng |
 | Chỉ dùng tài liệu `bot_visible=true`; tài liệu riêng tư chỉ Claude Code thấy | `kb_set_visibility` |
 | Không biết thì không trả lời | `fallback_reply` rỗng |
 | Bạn tự nhắn tay trong hội thoại → bot tạm dừng ở đó | 30 phút |
@@ -41,10 +42,45 @@ Claude Code đọc `.mcp.json` trong thư mục này (chạy `claude` tại đâ
 
 **Lưu ý quan trọng:** bất kỳ ai nhắn riêng đều có thể khiến bot trích nội dung tài liệu `bot_visible`. Đừng để hồ sơ nội bộ, đơn giá, thông tin thanh tra/kiểm toán ở chế độ bot được dùng. Bot cũng không nên trả lời các nội dung cần chịu trách nhiệm pháp lý (khối lượng, quyết toán, nghiệm thu) mà chưa có người duyệt: hãy chỉ nạp tài liệu thật sự an toàn để công khai.
 
+## Theo dõi khối lượng công trình từ nhóm hiện trường
+
+**Nick bot phải là một tài khoản Zalo riêng (nick phụ)**, vì bạn không thể nhắn tin cho chính nick của mình. Bạn nhắn hỏi nick phụ từ Zalo chính.
+
+```
+Nhóm hiện trường ──► bot ghi tin ──► Claude trích xuất (hạng mục, khối lượng, vị trí, ngày)
+                                          │
+                       Bảng báo cáo ◄─────┘   (hệ thống tự CỘNG DỒN bằng SQL, LLM không tự tính)
+                            │
+Bạn nhắn "Cầu ABC đến đâu rồi?" ──► bot trả lời từ số liệu đã cộng dồn
+```
+
+**Thiết lập một lần** (nói với Claude Code, nó gọi các công cụ tương ứng):
+
+1. Thêm nick phụ vào các nhóm hiện trường (làm tay trong Zalo).
+2. `project_create` từng công trình, kèm bí danh/mã tuyến hiện trường hay dùng. Nhóm nào có tên chứa tên công trình sẽ **tự được ghép**; nhóm còn lại xem bằng `group_list` rồi `group_assign`. Một nhóm có thể ghép nhiều công trình.
+3. Cho phép chính bạn hỏi: `zalo_new_pair_code`, rồi từ Zalo chính nhắn tới nick phụ `/ketnoi <mã>` (mã 6 số, dùng một lần, hết hạn sau 15 phút).
+4. (Tuỳ chọn) `report_set_target` để nhập khối lượng cần thực hiện từ hợp đồng/dự toán, nhờ đó bot trả lời được **% hoàn thành**.
+5. Bật bot: `bot_enabled = true`.
+
+**Từ đó:** hiện trường báo trong nhóm → sau khi nhóm yên 90 giây bot tự trích xuất → bạn hỏi "khối lượng Cầu ABC đến đâu rồi?" là có đáp ngay (bot xử lý nốt các tin chưa trích xuất trước khi trả lời). Hỏi mà không nêu công trình, khi có nhiều công trình, bot sẽ hỏi lại thay vì đoán.
+
+**Quyền truy cập:** chỉ tài khoản đã ghép nối (`owner_ids`) mới xem được báo cáo công trình và tài liệu riêng tư. Người khác nhắn riêng chỉ nhận câu trả lời từ tài liệu `bot_visible`, **không bao giờ** thấy số liệu công trình. Bot không trả lời trong nhóm.
+
+### Giới hạn bạn cần biết (quan trọng với hồ sơ thanh tra, kiểm toán)
+
+- Đây là **số liệu báo cáo hiện trường, chưa nghiệm thu**; bot luôn nói rõ như vậy. Không dùng làm căn cứ thanh toán/quyết toán nếu chưa đối chiếu hồ sơ.
+- Tin nhắn Zalo là văn bản tự do nên **việc trích xuất có thể sai** (nhầm số, đơn vị, ngày, công trình). Dòng nghi ngờ được gắn "độ tin cậy thấp"; tin đính chính ("nhầm, sửa lại") được ghi thêm chứ không tự ghi đè dòng cũ nên có thể bị tính hai lần: kiểm tra bằng `report_list`, sửa/xoá bằng `report_update` / `report_delete`, gộp tên hạng mục khác nhau bằng `report_merge_items`. Mọi dòng đều lưu id tin nhắn nguồn.
+- Hiện trường báo **lũy kế** và **trong ngày** lẫn lộn: hệ thống chỉ cộng khối lượng trong ngày, còn lũy kế hiện trường tự nêu được lưu riêng và bot nêu cả hai khi chúng lệch nhau.
+- **Ảnh/tệp đính kèm chưa được đọc** (ảnh hiện trường, bảng khối lượng chụp lại, file Excel/PDF gửi trong nhóm sẽ bị bỏ qua).
+- Báo cáo chỉ được ghi từ lúc bot đang chạy và nick đã ở trong nhóm.
+
 ## Công cụ MCP
 
-`kb_add_text`, `kb_add_file`, `kb_search`, `kb_list`, `kb_delete`, `kb_set_visibility`, `zalo_status`, `zalo_list_conversations`, `zalo_read_messages`, `zalo_send_message`, `zalo_unanswered`, `bot_config`.
+- Kiến thức: `kb_add_text`, `kb_add_file`, `kb_search`, `kb_list`, `kb_delete`, `kb_set_visibility`
+- Zalo: `zalo_status`, `zalo_list_conversations`, `zalo_read_messages`, `zalo_send_message`, `zalo_unanswered`, `zalo_new_pair_code`, `bot_config`
+- Công trình/nhóm: `project_create`, `project_update`, `project_delete`, `project_list`, `group_list`, `group_assign`, `group_unassign`, `extract_now`
+- Báo cáo khối lượng: `report_summary`, `report_list`, `report_add`, `report_update`, `report_delete`, `report_merge_items`, `report_set_target`
 
-## Chưa làm
+## Kiểm thử
 
-Ảnh/tệp đính kèm chưa được tải về hay đọc; tin nhắn nhóm chỉ được ghi nhật ký để Claude Code tổng hợp, bot không trả lời nhóm.
+`npm test` chạy bài kiểm thử đầu-cuối với LLM giả lập (ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối). Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.
