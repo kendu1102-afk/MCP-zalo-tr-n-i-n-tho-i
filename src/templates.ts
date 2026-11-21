@@ -108,6 +108,6 @@ export function renderTemplate(id: string, data: Record<string, unknown>, fileSt
 export function docxText(file: string): string {
   const zip = new PizZip(fs.readFileSync(file));
   const xml = zip.file("word/document.xml")!.asText();
-  return (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? []).map((p) => [...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((m) => m[1]).join("")).join("\n")
+  return (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? []).map((p) => [...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>|<w:br\/>/g)].map((m) => m[1] ?? "\n").join("")).join("\n")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }

@@ -17,31 +17,31 @@ export type Job = {
   id: number; requesterUid: string; requesterName: string; requestText: string; status: string;
   templateId: string; filePath: string; summary: string; error: string; createdAt: number; updatedAt: number;
 };
-export type Requester = { uid: string; name: string; projects: string[]; kbPrivate: boolean };
+export type Requester = { uid: string; name: string; projects: string[]; kbPrivate: boolean; accountMemory: boolean };
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), "[hồ sơ]", ...a);
 const DRAFT_NOTE = "⚠️ DỰ THẢO do trợ lý soạn tự động từ số liệu hiện trường CHƯA nghiệm thu. Cần soát lại trước khi ký/gửi đi.";
 
 // ---------- người được phép yêu cầu ----------
-type RRow = { uid: string; name: string; projects: string; kb_private: number };
-const toReq = (r: RRow): Requester => ({ uid: r.uid, name: r.name, projects: (() => { try { return JSON.parse(r.projects) as string[]; } catch { return []; } })(), kbPrivate: !!r.kb_private });
+type RRow = { uid: string; name: string; projects: string; kb_private: number; account_memory: number };
+const toReq = (r: RRow): Requester => ({ uid: r.uid, name: r.name, projects: (() => { try { return JSON.parse(r.projects) as string[]; } catch { return []; } })(), kbPrivate: !!r.kb_private, accountMemory: !!r.account_memory });
 
-export function addRequester(uid: string, projects: string[], kbPrivate = false): Requester {
+export function addRequester(uid: string, projects: string[], kbPrivate = false, accountMemory = false): Requester {
   if (!isFriend(uid)) throw new Error("Người này chưa là bạn bè của nick bot (hoặc danh sách bạn bè chưa đồng bộ).");
   if (!projects.length) throw new Error('Phải nêu công trình được phép, hoặc ["*"] cho tất cả.');
   if (!projects.includes("*")) for (const n of projects) if (!P.resolveProject(n)) throw new Error(`Không tìm thấy công trình "${n}".`);
   const names = projects.includes("*") ? ["*"] : projects.map((n) => P.resolveProject(n)!.name);
   const name = (db.prepare("SELECT name FROM friends WHERE uid=?").get(uid) as { name: string } | undefined)?.name ?? "";
   db.prepare(
-    `INSERT INTO requesters(uid,name,projects,kb_private,created_at) VALUES(?,?,?,?,?)
-     ON CONFLICT(uid) DO UPDATE SET name=excluded.name, projects=excluded.projects, kb_private=excluded.kb_private`,
-  ).run(uid, name, JSON.stringify(names), kbPrivate ? 1 : 0, Date.now());
-  return { uid, name, projects: names, kbPrivate };
+    `INSERT INTO requesters(uid,name,projects,kb_private,account_memory,created_at) VALUES(?,?,?,?,?,?)
+     ON CONFLICT(uid) DO UPDATE SET name=excluded.name, projects=excluded.projects, kb_private=excluded.kb_private, account_memory=excluded.account_memory`,
+  ).run(uid, name, JSON.stringify(names), kbPrivate ? 1 : 0, accountMemory ? 1 : 0, Date.now());
+  return { uid, name, projects: names, kbPrivate, accountMemory };
 }
 export const removeRequester = (uid: string) => Number(db.prepare("DELETE FROM requesters WHERE uid=?").run(uid).changes) > 0;
-export const listRequesters = (): Requester[] => (db.prepare("SELECT uid,name,projects,kb_private FROM requesters ORDER BY name").all() as RRow[]).map(toReq);
+export const listRequesters = (): Requester[] => (db.prepare("SELECT uid,name,projects,kb_private,account_memory FROM requesters ORDER BY name").all() as RRow[]).map(toReq);
 export const getRequester = (uid: string): Requester | null => {
-  const r = db.prepare("SELECT uid,name,projects,kb_private FROM requesters WHERE uid=?").get(uid) as RRow | undefined;
+  const r = db.prepare("SELECT uid,name,projects,kb_private,account_memory FROM requesters WHERE uid=?").get(uid) as RRow | undefined;
   return r ? toReq(r) : null;
 };
 export const isOwnerUid = (uid: string) => getJsonList("owner_ids").includes(uid);
@@ -90,12 +90,12 @@ export async function submitRequest(uid: string, name: string, text: string, tp:
 }
 
 function ctxFor(uid: string, name: string): AgentCtx | null {
-  if (isOwnerUid(uid)) return { requesterName: name || "chủ tài khoản", isOwner: true, projects: P.listProjects(), kbPrivate: true };
+  if (isOwnerUid(uid)) return { requesterName: name || "chủ tài khoản", isOwner: true, projects: P.listProjects(), kbPrivate: true, useMemory: true };
   const rq = getRequester(uid);
   if (!rq) return null;
   const all = P.listProjects();
   const projects = rq.projects.includes("*") ? all : all.filter((p) => rq.projects.includes(p.name));
-  return { requesterName: name || rq.name, isOwner: false, projects, kbPrivate: rq.kbPrivate };
+  return { requesterName: name || rq.name, isOwner: false, projects, kbPrivate: rq.kbPrivate, useMemory: rq.accountMemory };
 }
 
 /** Xử lý lần lượt các yêu cầu đang chờ. */

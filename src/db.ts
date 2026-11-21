@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS work_targets (
   PRIMARY KEY (project_id, item, unit)
 );
 `);
+try { db.exec("ALTER TABLE requesters ADD COLUMN account_memory INTEGER NOT NULL DEFAULT 0"); } catch { /* đã có */ }
 // extracted: 0 = chờ xử lý, 1 = đã trích xuất, 2 = bỏ qua (không phải báo cáo)
 try { db.exec("ALTER TABLE messages ADD COLUMN extracted INTEGER NOT NULL DEFAULT 0"); } catch { /* đã có */ }
 db.exec("PRAGMA foreign_keys = ON;");
@@ -147,6 +148,9 @@ export const DEFAULT_SETTINGS = {
   pair_code: "",                   // mã ghép nối tạm thời "code:hạn" (xem zalo_new_pair_code)
   doc_delivery: "approve",         // approve = soạn xong gửi CHỦ duyệt rồi mới gửi người yêu cầu | auto = gửi thẳng
   doc_max_per_day: "5",            // số yêu cầu làm hồ sơ tối đa mỗi người mỗi ngày
+  engine: "claude-code",           // claude-code = dùng Claude Code đăng nhập bằng tài khoản Claude của bạn | api = dùng ANTHROPIC_API_KEY
+  cc_model: "",                    // để trống = mô hình mặc định của tài khoản
+  cc_timeout_sec: "300",
   persona: "Bạn là trợ lý của một kỹ sư quản lý dự án cầu đường và bảo dưỡng thường xuyên đường bộ.",
 } as const;
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

@@ -89,6 +89,9 @@ const m1 = agg.find((a) => a.item.includes("M1"))!;
 assert.equal(m1.total, 20.5); assert.equal(m1.reports, 3); assert.equal(m1.percent, 25);
 const m2 = agg.find((a) => a.item.includes("M2"))!;
 assert.equal(m2.total, 3.5); assert.equal(m2.lastCumulative, 8);
+assert.equal(m1.percentCumulative, null, "không có lũy kế hiện trường thì không có % theo lũy kế");
+P.setTarget(cau.id, "Lắp cốt thép mố M2", "tấn", 20);
+assert.equal(P.aggregate(cau.id).find((a) => a.item.includes("M2"))!.percentCumulative, 40, "8/20 = 40% theo lũy kế hiện trường");
 ok("cộng dồn đúng bằng SQL: 12 + 8,5 = 20,5 m3 (null không tính), 25% so với 82 m3, lũy kế hiện trường 8 tấn lưu riêng");
 
 // --- hỏi tiến độ ---

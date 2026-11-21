@@ -298,7 +298,7 @@ server.registerTool(
 
 server.registerTool(
   "extract_now",
-  { description: "Yêu cầu bot trích xuất ngay các tin nhóm đang chờ thành báo cáo khối lượng (thường bot tự làm mỗi phút sau khi nhóm yên 90 giây). Cần bot đang chạy và có ANTHROPIC_API_KEY.", inputSchema: {} },
+  { description: "Yêu cầu bot trích xuất ngay các tin nhóm đang chờ thành báo cáo khối lượng (thường bot tự làm mỗi phút sau khi nhóm yên 90 giây). Cần bot đang chạy.", inputSchema: {} },
   async () => {
     setSettingRaw("extract_request", "1");
     const hb = getHeartbeat();
@@ -321,7 +321,7 @@ server.registerTool(
     return text(head + "\n" + rows.map((r) =>
       `- ${r.item}: ${n(r.total)} ${r.unit} (${r.reports} báo cáo, ${r.firstDate} → ${r.lastDate})` +
       (r.lastCumulative !== null ? ` | lũy kế hiện trường nêu: ${n(r.lastCumulative)} (${r.lastCumulativeDate})` : "") +
-      (r.target !== null ? ` | cần thực hiện: ${n(r.target)} → ${r.percent}%` : "") +
+      (r.target !== null ? ` | cần thực hiện: ${n(r.target)} → ${r.percent}% (theo tổng báo cáo từ khi theo dõi)${r.percentCumulative !== null ? `, ${r.percentCumulative}% (theo lũy kế hiện trường)` : ""}` : "") +
       (r.lowConfidence ? ` | ⚠ ${r.lowConfidence} số liệu độ tin cậy thấp` : "")).join("\n"));
   },
 );
@@ -416,14 +416,14 @@ server.registerTool(
 server.registerTool(
   "requester_add",
   {
-    description: "Cấp quyền cho MỘT người trong danh sách bạn bè được nhắn yêu cầu bot làm hồ sơ (báo cáo, tờ trình...). friend là uid hoặc tên (phải khớp đúng 1 người). projects: tên các công trình được phép, hoặc [\"*\"] cho tất cả. kb_private=true cho phép bot dùng cả tài liệu riêng tư khi soạn cho người này. Chỉ làm khi người dùng yêu cầu rõ.",
-    inputSchema: { friend: z.string(), projects: z.array(z.string()).min(1), kb_private: z.boolean().default(false) },
+    description: "Cấp quyền cho MỘT người trong danh sách bạn bè được nhắn yêu cầu bot làm hồ sơ (báo cáo, tờ trình...). friend là uid hoặc tên (phải khớp đúng 1 người). projects: tên các công trình được phép, hoặc [\"*\"] cho tất cả. kb_private=true cho phép bot dùng cả tài liệu riêng tư khi soạn cho người này. account_memory=true cho phép dùng BỘ NHỚ TÀI KHOẢN CLAUDE (~/.claude/CLAUDE.md) khi trả lời và soạn hồ sơ cho người này. Chỉ làm khi người dùng yêu cầu rõ.",
+    inputSchema: { friend: z.string(), projects: z.array(z.string()).min(1), kb_private: z.boolean().default(false), account_memory: z.boolean().default(false) },
   },
-  async ({ friend, projects, kb_private }) => {
+  async ({ friend, projects, kb_private, account_memory }) => {
     const m = D.findFriends(friend);
     if (m.length !== 1) return text(m.length ? `Có ${m.length} người khớp, hãy dùng uid:\n${m.map((f) => `${f.uid} | ${f.name}`).join("\n")}` : `Không tìm thấy bạn bè "${friend}".`);
-    const r = D.addRequester(m[0].uid, projects, kb_private);
-    return text(`Đã cấp quyền cho ${r.name} (${r.uid}): công trình ${r.projects.join(", ")}${r.kbPrivate ? ", được dùng tài liệu riêng tư" : ""}. Chế độ gửi hiện tại: ${getSetting("doc_delivery") === "auto" ? "TỰ ĐỘNG GỬI" : "chờ bạn duyệt"}.`);
+    const r = D.addRequester(m[0].uid, projects, kb_private, account_memory);
+    return text(`Đã cấp quyền cho ${r.name} (${r.uid}): công trình ${r.projects.join(", ")}${r.kbPrivate ? ", được dùng tài liệu riêng tư" : ""}${r.accountMemory ? ", được dùng bộ nhớ tài khoản Claude" : ""}. Chế độ gửi hiện tại: ${getSetting("doc_delivery") === "auto" ? "TỰ ĐỘNG GỬI" : "chờ bạn duyệt"}.`);
   },
 );
 
@@ -432,7 +432,7 @@ server.registerTool(
   { description: "Danh sách người được phép yêu cầu hồ sơ và phạm vi công trình.", inputSchema: {} },
   async () => {
     const rs = D.listRequesters();
-    return text(rs.length ? rs.map((r) => `${r.uid} | ${r.name} | công trình: ${r.projects.join(", ")}${r.kbPrivate ? " | tài liệu riêng tư: CÓ" : ""}`).join("\n") : "Chưa cấp quyền cho ai.");
+    return text(rs.length ? rs.map((r) => `${r.uid} | ${r.name} | công trình: ${r.projects.join(", ")}${r.kbPrivate ? " | tài liệu riêng tư: CÓ" : ""}${r.accountMemory ? " | bộ nhớ tài khoản: CÓ" : ""}`).join("\n") : "Chưa cấp quyền cho ai.");
   },
 );
 

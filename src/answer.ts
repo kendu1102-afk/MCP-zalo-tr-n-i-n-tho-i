@@ -3,6 +3,7 @@ import { db, getSetting } from "./db.js";
 import { extractPending } from "./extract.js";
 import { search, type Hit } from "./knowledge.js";
 import { callClaude, textOf } from "./llm.js";
+import { accountMemoryAllowed } from "./permissions.js";
 import { aggregate, findProjectsInText, lastReportDate, listProjects, listReports, vnDate, type Project } from "./projects.js";
 
 export const NO_ANSWER = "[[KHONG_BIET]]";
@@ -26,10 +27,12 @@ function history(threadId: string, limit = 8): { role: "user" | "assistant"; con
   return merged;
 }
 
-async function ask(system: string, threadId: string, question: string): Promise<string | null> {
+const MEMORY_RULE = "- Bạn được phép dùng thêm thông tin trong BỘ NHỚ của chủ tài khoản (nếu có trong ngữ cảnh) như một nguồn dữ liệu, nhưng không tiết lộ thông tin cá nhân, mật khẩu, thông tin tài chính riêng.";
+
+async function ask(system: string, threadId: string, question: string, useMemory: boolean): Promise<string | null> {
   const msgs = history(threadId);
   if (msgs.length === 0 || msgs[msgs.length - 1].role !== "user") msgs.push({ role: "user", content: question });
-  const res = await callClaude({ model: BOT_MODEL, max_tokens: 800, system, messages: msgs });
+  const res = await callClaude({ model: BOT_MODEL, max_tokens: 800, system: useMemory ? system + "\n" + MEMORY_RULE : system, messages: msgs }, { useMemory });
   const out = textOf(res);
   if (!out || out.includes(NO_ANSWER)) return null;
   return out;
@@ -45,20 +48,21 @@ const COMMON_RULES = [
 /** Người lạ nhắn riêng: chỉ dùng tài liệu bot_visible. Trả null nếu không có căn cứ. */
 export async function answerFromKnowledge(threadId: string, question: string): Promise<string | null> {
   const hits = search(question, { limit: 6, botOnly: true });
-  if (hits.length === 0) return null;
+  const useMemory = accountMemoryAllowed(threadId);
+  if (hits.length === 0 && !useMemory) return null;
   const system = [
     getSetting("persona"),
     "Bạn đang trả lời tin nhắn riêng trên Zalo thay cho chủ tài khoản.",
     "QUY TẮC BẮT BUỘC:",
-    "- Chỉ trả lời dựa trên phần TÀI LIỆU bên dưới. Không dùng kiến thức ngoài, không suy đoán số liệu, đơn giá, khối lượng, quy định pháp lý.",
+    `- Chỉ trả lời dựa trên phần TÀI LIỆU bên dưới${useMemory ? " và bộ nhớ của chủ tài khoản" : ""}. Không dùng kiến thức ngoài, không suy đoán số liệu, đơn giá, khối lượng, quy định pháp lý.`,
     `- Nếu tài liệu không đủ căn cứ để trả lời câu hỏi, chỉ trả về đúng chuỗi ${NO_ANSWER} (không viết gì thêm).`,
     ...COMMON_RULES,
     "- Không tiết lộ thông tin cá nhân của người khác hoặc nội dung các cuộc trò chuyện khác.",
     "",
     "TÀI LIỆU:",
-    docsBlock(hits),
+    hits.length ? docsBlock(hits) : "(không có)",
   ].join("\n");
-  return ask(system, threadId, question);
+  return ask(system, threadId, question, useMemory);
 }
 
 // ================= CHỦ TÀI KHOẢN HỎI VỀ CÔNG TRÌNH =================
@@ -81,7 +85,7 @@ export function projectContext(p: Project): string {
     const extra = [
       `${t.reports} báo cáo, từ ${t.firstDate} đến ${t.lastDate}`,
       t.lastCumulative !== null ? `lũy kế do hiện trường tự nêu: ${fmtNum(t.lastCumulative)} ${t.unit} (ngày ${t.lastCumulativeDate})` : "",
-      t.target !== null ? `khối lượng cần thực hiện: ${fmtNum(t.target)} ${t.unit} → đạt ${t.percent}%` : "",
+      t.target !== null ? `khối lượng cần thực hiện: ${fmtNum(t.target)} ${t.unit} → tổng các báo cáo bot ghi nhận đạt ${t.percent}% (chỉ tính từ khi bắt đầu theo dõi)${t.percentCumulative !== null ? `; theo lũy kế hiện trường nêu đạt ${t.percentCumulative}%` : ""}` : "",
       t.lowConfidence ? `${t.lowConfidence} số liệu độ tin cậy thấp/đính chính` : "",
     ].filter(Boolean).join("; ");
     lines.push(`- ${t.item} | tổng ${fmtNum(t.total)} ${t.unit} | ${extra}`);
@@ -96,7 +100,7 @@ export function projectContext(p: Project): string {
 }
 
 /**
- * Chủ tài khoản hỏi (tiến độ/khối lượng/tài liệu). Có quyền xem báo cáo hiện trường và cả tài liệu riêng tư.
+ * Chủ tài khoản hỏi (tiến độ/khối lượng/tài liệu/bất kỳ). Có quyền xem báo cáo hiện trường, tài liệu riêng tư và bộ nhớ tài khoản.
  * Trả về chuỗi trả lời, hoặc null nếu không có căn cứ.
  */
 export async function answerForOwner(threadId: string, question: string): Promise<string | null> {
@@ -109,7 +113,7 @@ export async function answerForOwner(threadId: string, question: string): Promis
     if (!hits.length) {
       if (all.length > 1 && /khối lượng|tiến độ|khoi luong|tien do|báo cáo|bao cao|đến đâu|den dau|hôm nay|hom nay/i.test(question))
         return `Bạn hỏi công trình nào? Mình đang theo dõi: ${all.map((p) => p.name).join("; ")}.`;
-      return null;
+      // không có dữ liệu công trình/tài liệu: vẫn hỏi Claude vì chủ được dùng bộ nhớ tài khoản
     }
   }
 
@@ -123,11 +127,11 @@ export async function answerForOwner(threadId: string, question: string): Promis
     getSetting("persona"),
     "Bạn đang trả lời CHỦ tài khoản (người quản lý dự án) về tiến độ/khối lượng công trình, dựa trên báo cáo hiện trường đã tổng hợp từ các nhóm Zalo.",
     "QUY TẮC BẮT BUỘC:",
-    "- Chỉ dùng số liệu trong phần DỮ LIỆU CÔNG TRÌNH và TÀI LIỆU bên dưới. Không bịa, không suy đoán khối lượng/đơn giá/quy định.",
+    "- Số liệu công trình chỉ lấy từ phần DỮ LIỆU CÔNG TRÌNH và TÀI LIỆU bên dưới (và bộ nhớ tài khoản nếu có). Không bịa, không suy đoán khối lượng/đơn giá/quy định.",
     "- Khối lượng: sao chép nguyên con số ở mục TỔNG HỢP, KHÔNG tự cộng trừ lại. Luôn kèm đơn vị.",
     "- Luôn nói rõ đây là số liệu THEO BÁO CÁO HIỆN TRƯỜNG (chưa nghiệm thu) và ngày báo cáo gần nhất; nếu đã quá 2 ngày hoặc chưa có báo cáo thì nói rõ.",
     "- Nếu lũy kế do hiện trường nêu khác tổng hợp, nêu cả hai và nói là có chênh lệch cần đối chiếu. Nếu có số liệu độ tin cậy thấp/đính chính, cảnh báo ngắn gọn.",
-    "- Nếu có 'khối lượng cần thực hiện' thì nêu tỷ lệ % đã cho sẵn; nếu không có thì không tự đoán tỷ lệ.",
+    "- Nếu có 'khối lượng cần thực hiện' thì nêu tỷ lệ % đã cho sẵn; nếu có cả % theo lũy kế hiện trường thì ưu tiên nêu con số đó và nói rõ % theo tổng báo cáo chỉ tính từ khi bắt đầu theo dõi. Không tự tính tỷ lệ.",
     "- Khi nêu số liệu, nên nêu hạng mục, khối lượng, khoảng ngày/vị trí chính; liệt kê tối đa khoảng 8 hạng mục, hạng mục khác nói 'còn n hạng mục khác'.",
     `- Nếu dữ liệu không đủ để trả lời, chỉ trả về đúng chuỗi ${NO_ANSWER} (không viết gì thêm).`,
     ...COMMON_RULES,
@@ -135,6 +139,6 @@ export async function answerForOwner(threadId: string, question: string): Promis
     matched.length ? "DỮ LIỆU CÔNG TRÌNH:\n" + matched.map(projectContext).join("\n\n====\n\n") : "",
     hits.length ? "\nTÀI LIỆU:\n" + docsBlock(hits) : "",
   ].join("\n");
-  return ask(system, threadId, question);
+  return ask(system, threadId, question, true);
 }
 

@@ -8,13 +8,22 @@ Kết nối **Claude Code** với **Zalo cá nhân** (qua thư viện không ch�
 
 > ⚠️ `zca-js` giả lập Zalo Web, **không chính thức**: có thể bị Zalo khoá tài khoản. Nên dùng nick phụ. Zalo chỉ cho một listener mỗi tài khoản: mở Zalo Web/PC cùng lúc sẽ ngắt bot.
 
-## Cài đặt (chạy trên máy tính/VPS bật liên tục, cần Node >= 22.13)
+## Bộ não là Claude (tài khoản của bạn)
+
+Bot Zalo chỉ là **cầu nối**. Mọi việc đọc tin để tổng hợp số liệu, trả lời câu hỏi, soạn báo cáo và tờ trình đều do **Claude Code chạy bằng tài khoản Claude đang đăng nhập trên máy chạy bot** đảm nhận (`claude -p`, không cần API key; `engine=claude-code`, mặc định).
+
+- **An toàn:** mỗi lần gọi, Claude Code bị tắt toàn bộ công cụ có sẵn (không chạy lệnh, không đọc/sửa file, không lên web) và chỉ được nạp MCP do bot chỉ định. Khi soạn hồ sơ, MCP đó **chỉ đọc** và **chỉ thấy các công trình người yêu cầu được cấp**; phạm vi này do bot đặt, Claude không tự nới được.
+- **Bộ nhớ tài khoản** (`~/.claude/CLAUDE.md` và cài đặt cấp user của Claude Code) **chỉ được nạp cho nick bạn cho phép**: tài khoản chủ (đã `/ketnoi`) và người được `requester_add ... account_memory=true`. Nick khác không được dùng.
+- **Hạn mức:** dùng gói Claude của bạn nên chịu giới hạn lượt dùng của gói. Khi chạm giới hạn, bot sẽ trả lời chậm hoặc không trả lời được cho tới khi hạn mức hồi lại. Muốn ổn định hơn có thể chuyển `engine=api` (tính phí theo API key).
+- **Điều khoản:** gói Claude cá nhân dành cho chính bạn sử dụng. Dùng nó để bot tự động phục vụ người khác (đồng nghiệp, hiện trường) có thể vượt phạm vi điều khoản sử dụng; bạn nên tự kiểm tra điều khoản của Anthropic, và chuyển sang `engine=api` nếu cần.
+
+## Cài đặt (máy tính/VPS bật liên tục, cần Node >= 22.13 và Claude Code)
 
 ```bash
 npm install
-cp .env.example .env   # điền ANTHROPIC_API_KEY, rồi: export $(grep -v '^#' .env | xargs)
-npm run login          # mở data/qr.png, quét bằng Zalo trên điện thoại và xác nhận
-npm run bot            # giữ chạy (dùng pm2/systemd để chạy nền)
+claude                 # chạy một lần, đăng nhập tài khoản Claude của bạn, rồi thoát
+npm run login          # mở data/qr.png, quét bằng Zalo của NICK BOT và xác nhận
+npm run bot            # giữ chạy (systemd/pm2), xem DEPLOY.md để chạy 24/24 trên đám mây
 ```
 
 Claude Code đọc `.mcp.json` trong thư mục này (chạy `claude` tại đây và chấp nhận server `zalo`).
@@ -95,7 +104,7 @@ Bạn (tài khoản chủ) cũng nhắn yêu cầu được; khi đó bot gửi 
 
 **Giới hạn cần biết:**
 
-- **Bot không đăng nhập bằng tài khoản Claude của bạn** (gói Pro/Max trên claude.ai). Bot gọi Claude qua **API key** (`ANTHROPIC_API_KEY`), tính phí theo lượng dùng, tách riêng với gói claude.ai. Bot cũng **không đọc được tài liệu trong các Project trên claude.ai**: dữ liệu bot dùng là bộ nhớ trong `data/zalo.db`. Hãy nạp các tài liệu dự án vào đó bằng `kb_add_file` (docx, pdf, txt...).
+- Dữ liệu bot dùng là bộ nhớ trong `data/zalo.db` (báo cáo hiện trường, tài liệu đã nạp) cộng với **bộ nhớ Claude Code** của tài khoản (xem mục "Bộ não là Claude"). Bot **không** đọc được lịch sử chat, bộ nhớ hay Project trên claude.ai: hãy nạp tài liệu dự án bằng `kb_add_file`.
 - Chỉ xuất **.docx**, chưa xuất PDF (cần LibreOffice trên máy chạy bot).
 - Hồ sơ là **dự thảo**: số liệu lấy từ báo cáo hiện trường chưa nghiệm thu, và câu chữ do mô hình viết. Phải soát trước khi ký hoặc gửi chủ đầu tư; đừng dùng thẳng cho thanh toán, quyết toán.
 - Việc nhận ra một tin là "yêu cầu làm hồ sơ" dựa trên từ khoá (có động từ như làm/soạn/lập + loại văn bản như báo cáo/tờ trình/hồ sơ). Nhận nhầm thì người gửi thấy ngay tin xác nhận, và mỗi lần nhầm tốn một lượt trong giới hạn ngày.
@@ -110,5 +119,7 @@ Bạn (tài khoản chủ) cũng nhắn yêu cầu được; khi đó bot gửi 
 - Báo cáo khối lượng: `report_summary`, `report_list`, `report_add`, `report_update`, `report_delete`, `report_merge_items`, `report_set_target`
 
 ## Kiểm thử
+
+`npm run test:live` chạy kiểm thử **thật** với Claude Code (tốn lượt dùng): trích xuất tin nhắn hiện trường thật, trả lời chủ, soạn báo cáo tuần có chặn phạm vi.
 
 `npm test` chạy hai bài kiểm thử đầu-cuối với LLM giả lập: (1) ghép nhóm, trích xuất, cộng dồn, phân quyền, ghép nối, bạn bè; (2) làm hồ sơ với mẫu .docx thật: phạm vi công trình, tài liệu riêng tư, duyệt/hủy, chế độ tự động, hỏi lại, giới hạn ngày, lỗi API. Bài này **không** đánh giá chất lượng trích xuất của mô hình thật trên tin nhắn thật của hiện trường: hãy chạy thử vài ngày rồi đối chiếu `report_list` với tin nhắn gốc.

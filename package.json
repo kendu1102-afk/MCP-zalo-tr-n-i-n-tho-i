@@ -11,7 +11,8 @@
     "mcp": "tsx src/mcp.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx src/pipeline.test.mts && tsx src/docs.test.mts",
-    "sample-template": "tsx src/sample-template.ts"
+    "sample-template": "tsx src/sample-template.ts",
+    "test:live": "tsx src/live.test.mts"
   },
   "engines": {
     "node": ">=22.13"

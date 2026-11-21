@@ -138,7 +138,7 @@ export function itemNames(projectId: number): string[] {
 
 export type ItemTotal = {
   item: string; unit: string; total: number; reports: number; firstDate: string; lastDate: string;
-  lastCumulative: number | null; lastCumulativeDate: string | null; target: number | null; percent: number | null; lowConfidence: number;
+  lastCumulative: number | null; lastCumulativeDate: string | null; target: number | null; percent: number | null; percentCumulative: number | null; lowConfidence: number;
 };
 /** Cộng dồn khối lượng theo hạng mục (do code tính bằng SQL, không để LLM tự cộng). */
 export function aggregate(projectId: number, opts: { fromDate?: string; toDate?: string } = {}): ItemTotal[] {
@@ -157,6 +157,7 @@ export function aggregate(projectId: number, opts: { fromDate?: string; toDate?:
     return {
       ...r, lastCumulative: c?.cumulative ?? null, lastCumulativeDate: c?.report_date ?? null,
       target: t?.target ?? null, percent: t ? Math.round((r.total / t.target) * 1000) / 10 : null,
+      percentCumulative: t && c ? Math.round((c.cumulative / t.target) * 1000) / 10 : null,
     };
   });
 }

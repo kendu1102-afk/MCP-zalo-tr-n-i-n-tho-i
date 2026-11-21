@@ -5,6 +5,8 @@
 import { ThreadType } from "zca-js";
 import { db, getJsonList, getSetting, getSettingRaw, getHeartbeat, logMessage, setHeartbeat, setSettingRaw } from "./db.js";
 import { answerForOwner, answerFromKnowledge } from "./answer.js";
+import { engine, engineReady } from "./llm.js";
+import { checkClaudeCode } from "./claudecode.js";
 import { extractPending } from "./extract.js";
 import { tryPairCommand } from "./pairing.js";
 import { friendGate, syncFriends } from "./friends.js";
@@ -15,7 +17,10 @@ import { loginWithSession } from "./zalo.js";
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-if (!process.env.ANTHROPIC_API_KEY) log("CẢNH BÁO: chưa có ANTHROPIC_API_KEY, bot sẽ không tự trả lời được.");
+if (engine() === "claude-code") {
+  try { log("Dùng Claude Code (tài khoản Claude đã đăng nhập trên máy này):", await checkClaudeCode()); }
+  catch { log('CẢNH BÁO: không chạy được lệnh "claude". Cài Claude Code rồi chạy `claude` một lần để đăng nhập tài khoản Claude của bạn. Hoặc đặt engine=api và ANTHROPIC_API_KEY.'); }
+} else if (!process.env.ANTHROPIC_API_KEY) log("CẢNH BÁO: engine=api nhưng chưa có ANTHROPIC_API_KEY.");
 
 const api = await loginWithSession();
 const myUid = api.getContext().uid;
@@ -83,7 +88,7 @@ async function tryPair(threadId: string, uid: string, text: string): Promise<boo
 // ---- hồ sơ: lệnh duyệt của chủ, và yêu cầu làm hồ sơ từ người được cấp quyền ----
 let docWorker = false;
 async function runDocWorker() {
-  if (docWorker || !process.env.ANTHROPIC_API_KEY) return;
+  if (docWorker || !engineReady()) return;
   docWorker = true;
   try { await processQueue(transport); await deliverApproved(transport); }
   catch (e) { log("lỗi hàng đợi hồ sơ:", e); }
@@ -221,7 +226,7 @@ async function runExtraction(force: boolean) {
   if (extracting) return;
   extracting = true;
   try {
-    if (!process.env.ANTHROPIC_API_KEY) return;
+    if (!engineReady()) return;
     await extractPending({ force });
   } catch (e) {
     log("lỗi trích xuất:", e);
