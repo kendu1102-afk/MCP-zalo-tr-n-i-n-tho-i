@@ -26,7 +26,7 @@ Toàn bộ dữ liệu tổng hợp (báo cáo hiện trường, tài liệu, m�
    ```
 3. **Đưa mã nguồn lên.** Repo đang ở chế độ riêng tư nên cần token GitHub (quyền đọc repo). Lệnh sẽ hỏi mật khẩu, bạn dán token vào:
    ```bash
-   git clone https://github.com/kendu1102-afk/MCP-zalo-tr-n-i-n-tho-i.git zalo-bot && cd zalo-bot
+   git clone -b claude/hopeful-lamport-bf8qqw https://github.com/kendu1102-afk/MCP-zalo-tr-n-i-n-tho-i.git zalo-bot && cd zalo-bot
    ```
 4. **Cài đặt** (Node 22, thư viện, Claude Code, dịch vụ 24/24, sao lưu hằng ngày):
    ```bash
